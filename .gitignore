@@ -1,0 +1,28 @@
+# CRM uploads and cache
+crm/uploads/
+crm/cache/
+crm/tmp/
+crm/log/
+
+# Config files with credentials
+crm/plugins/claude/config.php
+crm/plugins/claude/openai_key.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# CRM config with credentials
+crm/config/
+crm/install/
+crm/backups/
+
+# Compiled binaries
+backend/ezlead-api

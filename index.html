@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EzLead - Quality Leads for Service Contractors</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f1f33 100%);
+            color: white;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .logo span { color: #4CAF50; }
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 30px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        .nav a:hover { opacity: 0.8; }
+        .nav .btn {
+            background: #4CAF50;
+            padding: 10px 24px;
+            border-radius: 6px;
+        }
+        .nav .btn:hover { background: #45a049; }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #1e3a5f 0%, #2a4a75 100%);
+            color: white;
+            padding: 80px 40px;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        .hero p {
+            font-size: 20px;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+        .hero-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+            padding: 16px 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 600;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .btn-primary:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            padding: 16px 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 600;
+            border: 2px solid rgba(255,255,255,0.5);
+            transition: border-color 0.2s;
+        }
+        .btn-secondary:hover {
+            border-color: white;
+        }
+
+        /* Features */
+        .features {
+            padding: 80px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .features h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 60px;
+            color: #1e3a5f;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+        }
+        .feature {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: #e8f5e9;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        .feature h3 {
+            font-size: 22px;
+            margin-bottom: 12px;
+            color: #1e3a5f;
+        }
+        .feature p {
+            color: #666;
+        }
+
+        /* How it Works */
+        .how-it-works {
+            background: #1e3a5f;
+            color: white;
+            padding: 80px 40px;
+        }
+        .how-it-works h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 60px;
+        }
+        .steps {
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            flex-wrap: wrap;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .step {
+            text-align: center;
+            max-width: 250px;
+        }
+        .step-number {
+            width: 60px;
+            height: 60px;
+            background: #4CAF50;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 700;
+            margin: 0 auto 20px;
+        }
+        .step h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        .step p {
+            opacity: 0.8;
+            font-size: 15px;
+        }
+
+        /* Pricing */
+        .pricing {
+            padding: 80px 40px;
+            text-align: center;
+        }
+        .pricing h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #1e3a5f;
+        }
+        .pricing > p {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 18px;
+        }
+        .price-card {
+            background: white;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .price {
+            font-size: 48px;
+            font-weight: 700;
+            color: #1e3a5f;
+        }
+        .price span {
+            font-size: 18px;
+            font-weight: 400;
+            color: #666;
+        }
+        .price-card ul {
+            list-style: none;
+            margin: 30px 0;
+            text-align: left;
+        }
+        .price-card li {
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .price-card li:last-child { border: none; }
+        .check {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        /* CTA */
+        .cta {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+        .cta h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+        .cta p {
+            font-size: 18px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+        .btn-white {
+            background: white;
+            color: #1e3a5f;
+            padding: 16px 40px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .btn-white:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Footer */
+        .footer {
+            background: #0f1f33;
+            color: rgba(255,255,255,0.7);
+            padding: 40px;
+            text-align: center;
+        }
+        .footer a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+        }
+        .footer a:hover { color: white; }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .header { padding: 15px 20px; }
+            .nav a { margin-left: 15px; font-size: 14px; }
+            .hero { padding: 60px 20px; }
+            .hero h1 { font-size: 32px; }
+            .hero p { font-size: 16px; }
+            .features, .pricing { padding: 60px 20px; }
+            .steps { gap: 40px; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">Ez<span>Lead</span></div>
+        <nav class="nav">
+            <a href="#features">Features</a>
+            <a href="#how-it-works">How It Works</a>
+            <a href="#pricing">Pricing</a>
+            <a href="/crm/">Login</a>
+            <a href="/crm/?module=users/registration" class="btn">Get Started</a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <h1>Quality Leads. Zero Hassle.</h1>
+        <p>Get exclusive leads for your service business delivered straight to your phone. Sod, landscaping, mechanic, septic, welding, and more.</p>
+        <div class="hero-buttons">
+            <a href="/crm/?module=users/registration" class="btn-primary">Start Getting Leads</a>
+            <a href="#how-it-works" class="btn-secondary">See How It Works</a>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <h2>Why Contractors Choose EzLead</h2>
+        <div class="features-grid">
+            <div class="feature">
+                <div class="feature-icon">📍</div>
+                <h3>Your Service Area</h3>
+                <p>Only get leads from zip codes you actually service. No wasted time on jobs too far away.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <h3>Instant Delivery</h3>
+                <p>Leads sent to you the moment they come in via email, SMS, or both. Be first to call.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💰</div>
+                <h3>Pay Per Lead</h3>
+                <p>No monthly fees or contracts. Just add credit and pay only for the leads you receive.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎯</div>
+                <h3>Your Vertical Only</h3>
+                <p>Sod installation? Mobile mechanic? Septic? Get only the type of work you want.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <h3>Track Everything</h3>
+                <p>See all your leads, transaction history, and ROI from your dashboard.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔒</div>
+                <h3>Control Your Flow</h3>
+                <p>Pause anytime. Adjust your zip codes. You're always in control.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-it-works" id="how-it-works">
+        <h2>How It Works</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Sign Up</h3>
+                <p>Create your account in 2 minutes. Set your zip codes and service type.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Add Credit</h3>
+                <p>Load your account with credit. Start with as little as $100.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Get Leads</h3>
+                <p>Receive leads instantly via email or SMS. Call them first, close more jobs.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="pricing" id="pricing">
+        <h2>Simple Pricing</h2>
+        <p>No monthly fees. No contracts. Just pay per lead.</p>
+        <div class="price-card">
+            <div class="price" style="color: #4CAF50; font-size: 28px; margin-bottom: 10px;">3 Free Leads</div>
+            <p style="color: #666; margin-bottom: 20px;">Then $35 per lead after that</p>
+            <ul>
+                <li><span class="check">✓</span> Exclusive to your area</li>
+                <li><span class="check">✓</span> Real-time delivery</li>
+                <li><span class="check">✓</span> Name, phone, email, address</li>
+                <li><span class="check">✓</span> No contracts or minimums</li>
+                <li><span class="check">✓</span> Pause or cancel anytime</li>
+            </ul>
+            <a href="/crm/?module=users/registration" class="btn-primary" style="display:block; text-align:center;">Start Free Trial</a>
+        </div>
+    </section>
+
+    <section class="cta">
+        <h2>Ready to Grow Your Business?</h2>
+        <p>Join contractors already getting quality leads from EzLead.</p>
+        <a href="/crm/?module=users/registration" class="btn-white">Create Your Account</a>
+    </section>
+
+    <footer class="footer">
+        <p>&copy; 2026 EzLead. <a href="/crm/">Buyer Login</a> | <a href="/admin/">Admin</a></p>
+    </footer>
+<!-- CRM Analytics -->
+<script>(function(){navigator.sendBeacon("https://ezlead4u.com/crm/plugins/claude/track.php",JSON.stringify({url:location.href,ref:document.referrer}));})()</script>
+</body>
+</html>

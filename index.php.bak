@@ -1,0 +1,4 @@
+<?php
+// EzLead HQ - Redirect to admin
+header('Location: /admin/');
+exit;

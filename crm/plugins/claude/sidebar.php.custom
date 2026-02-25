@@ -1,0 +1,128 @@
+<?php
+/**
+ * Simplified CRM sidebar.
+ * Replaces default Rukovoditel menu with 5 core items + more section.
+ */
+
+$badge_conn = new mysqli(DB_SERVER, DB_SERVER_USERNAME, DB_SERVER_PASSWORD, DB_DATABASE);
+$overdue_count = 0;
+$new_lead_count = 0;
+$task_count = 0;
+
+if (!$badge_conn->connect_error) {
+    $now = time();
+    $today_start = strtotime('today midnight');
+
+    // Overdue tasks
+    $r = $badge_conn->query("SELECT COUNT(*) as c FROM app_entity_36 WHERE (field_330 = '' OR field_330 IS NULL OR field_330 = '0') AND field_332 > 0 AND field_332 < $today_start");
+    if ($r) $overdue_count = (int)$r->fetch_assoc()['c'];
+
+    // New leads
+    $r = $badge_conn->query("SELECT COUNT(*) as c FROM app_entity_25 WHERE field_218 IS NULL OR field_218 = '' OR field_218 = 'New'");
+    if ($r) $new_lead_count = (int)$r->fetch_assoc()['c'];
+
+    // Open tasks
+    $r = $badge_conn->query("SELECT COUNT(*) as c FROM app_entity_36 WHERE field_330 = '' OR field_330 IS NULL OR field_330 = '0'");
+    if ($r) $task_count = (int)$r->fetch_assoc()['c'];
+
+    $badge_conn->close();
+}
+
+$current_module = $_GET['module'] ?? '';
+$current_path = $_GET['path'] ?? '';
+
+function is_active($check_module, $check_path = '') {
+    global $current_module, $current_path;
+    if ($check_path && $current_path == $check_path) return ' active';
+    if (!$check_path && $current_module == $check_module) return ' active';
+    if ($check_module == 'dashboard' && ($current_module == '' || $current_module == 'dashboard')) return ' active';
+    return '';
+}
+?>
+
+<ul class="page-sidebar-menu" data-keep-expanded="false" data-auto-scroll="true" data-slide-speed="200">
+
+    <li class="<?= is_active('dashboard') ?>">
+        <a href="index.php?module=dashboard">
+            <i class="fa fa-home"></i>
+            <span class="title">Today</span>
+            <?php if ($overdue_count > 0): ?>
+            <span class="badge badge-roundless" style="background:#e74c3c"><?= $overdue_count ?></span>
+            <?php endif; ?>
+        </a>
+    </li>
+
+    <li class="<?= is_active('items/items', '42') . is_active('items/item', '42') ?>">
+        <a href="index.php?module=items/items&path=42">
+            <i class="fa fa-wrench"></i>
+            <span class="title">Jobs</span>
+        </a>
+    </li>
+
+    <li class="<?= is_active('items/items', '25') . is_active('items/item', '25') ?>">
+        <a href="index.php?module=items/items&path=25">
+            <i class="fa fa-users"></i>
+            <span class="title">Leads</span>
+            <?php if ($new_lead_count > 0): ?>
+            <span class="badge badge-roundless" style="background:#3498db"><?= $new_lead_count ?></span>
+            <?php endif; ?>
+        </a>
+    </li>
+
+    <li class="<?= is_active('items/items', '36') . is_active('items/item', '36') ?>">
+        <a href="index.php?module=items/items&path=36">
+            <i class="fa fa-check-square-o"></i>
+            <span class="title">Tasks</span>
+            <?php if ($task_count > 0): ?>
+            <span class="badge badge-roundless" style="background:#9b59b6"><?= $task_count ?></span>
+            <?php endif; ?>
+        </a>
+    </li>
+
+    <li class="<?= is_active('items/items', '29') . is_active('items/item', '29') ?>">
+        <a href="index.php?module=items/items&path=29">
+            <i class="fa fa-calendar"></i>
+            <span class="title">Schedule</span>
+        </a>
+    </li>
+
+    <li>
+        <a href="javascript:;">
+            <i class="fa fa-ellipsis-h"></i>
+            <span class="title">More</span>
+            <span class="arrow"></span>
+        </a>
+        <ul class="sub-menu">
+            <li><a href="index.php?module=items/items&path=42"><i class="fa fa-car"></i> Mechanic Jobs</a></li>
+            <li><a href="index.php?module=items/items&path=49"><i class="fa fa-stethoscope"></i> Diagnostics</a></li>
+            <li><a href="index.php?module=items/items&path=47"><i class="fa fa-address-book"></i> Customers</a></li>
+            <li><a href="index.php?module=items/items&path=48"><i class="fa fa-truck"></i> Vehicles</a></li>
+            <li><a href="index.php?module=items/items&path=25"><i class="fa fa-users"></i> Leads</a></li>
+            <li><a href="index.php?module=items/items&path=26"><i class="fa fa-shopping-cart"></i> Buyers</a></li>
+            <li><a href="index.php?module=items/items&path=27"><i class="fa fa-credit-card"></i> Transactions</a></li>
+            <li><a href="index.php?module=items/items&path=50"><i class="fa fa-building"></i> Businesses</a></li>
+            <li><a href="index.php?module=items/items&path=37"><i class="fa fa-globe"></i> Sites</a></li>
+            <li><a href="index.php?module=items/items&path=44"><i class="fa fa-line-chart"></i> Analytics</a></li>
+            <li><a href="index.php?module=items/items&path=45"><i class="fa fa-sticky-note"></i> Site Notes</a></li>
+            <li><a href="index.php?module=items/items&path=46"><i class="fa fa-heartbeat"></i> Uptime Logs</a></li>
+            <li><a href="index.php?module=items/items&path=43"><i class="fa fa-bug"></i> Issues</a></li>
+            <li><a href="index.php?module=items/items&path=38"><i class="fa fa-file-text"></i> Documents</a></li>
+            <li><a href="index.php?module=items/items&path=39"><i class="fa fa-camera"></i> Photos</a></li>
+            <li><a href="index.php?module=items/items&path=40"><i class="fa fa-sticky-note"></i> Notes</a></li>
+            <li><a href="index.php?module=ext/ipages/view&id=1"><i class="fa fa-comments"></i> AI Chat</a></li>
+            <li><a href="index.php?module=items/items&path=30"><i class="fa fa-history"></i> Sessions</a></li>
+            <li><a href="index.php?module=items/items&path=35"><i class="fa fa-lightbulb-o"></i> Insights</a></li>
+            <li><a href="index.php?module=items/items&path=36"><i class="fa fa-check-square-o"></i> Actions</a></li>
+            <li><a href="index.php?module=items/items&path=21"><i class="fa fa-folder"></i> Projects</a></li>
+            <li><a href="index.php?module=items/kanban&path=41"><i class="fa fa-columns"></i> Kanban Board</a></li>
+            <li><a href="index.php?module=items/items&path=22"><i class="fa fa-tasks"></i> Workflow Tasks</a></li>
+            <?php if (isset($app_user) && $app_user['group_id'] == 0): ?>
+            <li><a href="index.php?module=configuration/index"><i class="fa fa-cog"></i> Configuration</a></li>
+            <li><a href="index.php?module=entities/index"><i class="fa fa-sitemap"></i> App Structure</a></li>
+            <li><a href="index.php?module=reports/index"><i class="fa fa-bar-chart"></i> Reports</a></li>
+            <li><a href="index.php?module=users/index"><i class="fa fa-user"></i> Users</a></li>
+            <?php endif; ?>
+        </ul>
+    </li>
+
+</ul>

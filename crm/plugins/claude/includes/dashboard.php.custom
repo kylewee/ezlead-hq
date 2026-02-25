@@ -1,0 +1,488 @@
+<?php
+/**
+ * "Today" Action Feed Dashboard
+ * Replaces default Rukovoditel dashboard.
+ * Shows everything needing attention, sorted by urgency.
+ */
+
+require_once(__DIR__ . '/../../../config/database.php');
+
+$conn = new mysqli(DB_SERVER, DB_SERVER_USERNAME, DB_SERVER_PASSWORD, DB_DATABASE);
+if ($conn->connect_error) {
+    die("Connection failed");
+}
+
+$now = time();
+$today_start = strtotime('today midnight');
+$today_end = $today_start + 86400;
+$week_end = $now + (7 * 86400);
+
+// ============================================================
+// BUSINESS FILTER
+// ============================================================
+$businesses = [];
+$result = $conn->query("SELECT id, field_468 as name FROM app_entity_50 ORDER BY field_468");
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $businesses[$row['id']] = $row['name'];
+    }
+}
+
+$selected_biz = isset($_GET['biz']) ? (int)$_GET['biz'] : 0; // 0 = all
+
+// Build WHERE clauses for each entity's business field
+$biz_filter_jobs = $selected_biz ? " AND field_475 = '$selected_biz'" : '';
+$biz_filter_leads = $selected_biz ? " AND field_474 = '$selected_biz'" : '';
+$biz_filter_tasks = $selected_biz ? " AND field_496 = '$selected_biz'" : '';
+
+$stage_names = [
+    82 => 'New Lead', 83 => 'Estimate Sent', 84 => 'Accepted',
+    85 => 'Scheduled', 86 => 'Parts Ordered', 87 => 'Confirmed',
+    88 => 'In Progress', 89 => 'Complete', 90 => 'Paid',
+    95 => 'Follow Up', 96 => 'Review Request'
+];
+
+$items = [];
+
+// ============================================================
+// MECHANIC JOBS (entity 42) - active jobs needing action
+// ============================================================
+$result = $conn->query("
+    SELECT id, field_354 as name, field_355 as phone, field_359 as make,
+           field_360 as model, field_361 as problem, field_362 as stage,
+           field_366 as total, field_368 as appt_time,
+           date_added, date_updated
+    FROM app_entity_42
+    WHERE field_362 NOT IN (90, 95, 96) $biz_filter_jobs
+    ORDER BY date_updated DESC
+");
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $stage = (int)$row['stage'];
+        $updated = (int)$row['date_updated'] ?: (int)$row['date_added'];
+        $age_hours = ($now - $updated) / 3600;
+        $vehicle = trim($row['make'] . ' ' . $row['model']);
+        $appt = (int)$row['appt_time'];
+
+        $urgency = 0;
+        $section = '';
+        $action_label = '';
+        $action_url = 'index.php?module=items/item&path=42&id=' . $row['id'];
+
+        switch ($stage) {
+            case 82: // New Lead
+                if ($age_hours > 24) {
+                    $urgency = 90; $section = 'high'; $action_label = 'Send Estimate';
+                } else {
+                    $urgency = 50; $section = 'medium'; $action_label = 'Send Estimate';
+                }
+                break;
+            case 83: // Estimate Sent
+                if ($age_hours > 72) {
+                    $urgency = 80; $section = 'high'; $action_label = 'Follow Up';
+                } else {
+                    $urgency = 20; $section = 'low'; $action_label = 'Waiting for Response';
+                }
+                break;
+            case 84: // Accepted
+                $urgency = 60; $section = 'medium'; $action_label = 'Schedule Appointment';
+                break;
+            case 85: // Scheduled
+            case 86: // Parts Ordered
+            case 87: // Confirmed
+                if ($appt > 0 && $appt >= $today_start && $appt < $today_end) {
+                    $urgency = 70; $section = 'high'; $action_label = 'Job Today';
+                } elseif ($appt > 0 && $appt < $now) {
+                    $urgency = 85; $section = 'high'; $action_label = 'Past Appointment';
+                } elseif ($appt > 0 && $appt < $week_end) {
+                    $urgency = 15; $section = 'low'; $action_label = date('D M j', $appt);
+                } else {
+                    $urgency = 10; $section = 'low'; $action_label = $stage_names[$stage];
+                }
+                break;
+            case 88: // In Progress
+                $urgency = 65; $section = 'high'; $action_label = 'In Progress';
+                break;
+            case 89: // Complete
+                if ($age_hours > 24) {
+                    $urgency = 85; $section = 'high'; $action_label = 'Send Invoice';
+                } else {
+                    $urgency = 60; $section = 'medium'; $action_label = 'Send Invoice';
+                }
+                break;
+        }
+
+        if ($section) {
+            $items[] = [
+                'type' => 'job', 'icon' => 'fa-wrench', 'icon_color' => '#e67e22',
+                'label' => $stage_names[$stage] ?? 'Job',
+                'title' => $row['name'] ?: 'Unknown',
+                'subtitle' => $vehicle . ($row['problem'] ? ' - ' . substr($row['problem'], 0, 60) : ''),
+                'phone' => $row['phone'], 'time' => $updated, 'appt_time' => $appt,
+                'urgency' => $urgency, 'section' => $section,
+                'action_label' => $action_label, 'action_url' => $action_url,
+                'entity_id' => 42, 'record_id' => $row['id'], 'total' => $row['total'],
+            ];
+        }
+    }
+}
+
+// ============================================================
+// PAID/FOLLOW-UP JOBS - only if action needed
+// ============================================================
+$result = $conn->query("
+    SELECT id, field_354 as name, field_355 as phone, field_359 as make,
+           field_360 as model, field_362 as stage, field_366 as total, date_updated
+    FROM app_entity_42
+    WHERE field_362 IN (90, 95) $biz_filter_jobs
+      AND date_updated >= " . ($now - 7 * 86400) . "
+    ORDER BY date_updated DESC
+");
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $stage = (int)$row['stage'];
+        $updated = (int)$row['date_updated'] ?: (int)$row['date_added'];
+        $age_hours = ($now - $updated) / 3600;
+        $vehicle = trim($row['make'] . ' ' . $row['model']);
+
+        $urgency = 0; $section = ''; $action_label = '';
+
+        if ($stage == 90 && $age_hours > 72) {
+            $urgency = 40; $section = 'medium'; $action_label = 'Send Follow-up';
+        } elseif ($stage == 95 && $age_hours > 48) {
+            $urgency = 35; $section = 'medium'; $action_label = 'Request Review';
+        }
+
+        if ($section) {
+            $items[] = [
+                'type' => 'job', 'icon' => 'fa-wrench', 'icon_color' => '#e67e22',
+                'label' => $stage_names[$stage] ?? 'Job',
+                'title' => $row['name'] ?: 'Unknown', 'subtitle' => $vehicle,
+                'phone' => $row['phone'], 'time' => $updated, 'appt_time' => 0,
+                'urgency' => $urgency, 'section' => $section,
+                'action_label' => $action_label,
+                'action_url' => 'index.php?module=items/item&path=42&id=' . $row['id'],
+                'entity_id' => 42, 'record_id' => $row['id'], 'total' => $row['total'],
+            ];
+        }
+    }
+}
+
+// ============================================================
+// LEADS (entity 25) - new/unhandled
+// ============================================================
+$result = $conn->query("
+    SELECT id, field_210 as name, field_211 as phone, field_215 as source,
+           field_218 as status, date_added
+    FROM app_entity_25
+    WHERE (field_218 IS NULL OR field_218 = '' OR field_218 = 'New') $biz_filter_leads
+    ORDER BY date_added DESC LIMIT 20
+");
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $added = strtotime($row['date_added']);
+        if (!$added || $added < 0) $added = $now;
+        $age_hours = ($now - $added) / 3600;
+
+        if ($age_hours > 48) {
+            $urgency = 80; $section = 'high';
+        } elseif ($age_hours > 24) {
+            $urgency = 60; $section = 'medium';
+        } else {
+            $urgency = 50; $section = 'medium';
+        }
+
+        $items[] = [
+            'type' => 'lead', 'icon' => 'fa-user-plus', 'icon_color' => '#3498db',
+            'label' => 'New Lead',
+            'title' => $row['name'] ?: 'Unknown',
+            'subtitle' => $row['source'] ? 'From ' . $row['source'] : 'Unknown source',
+            'phone' => $row['phone'], 'time' => $added, 'appt_time' => 0,
+            'urgency' => $urgency, 'section' => $section,
+            'action_label' => 'Respond',
+            'action_url' => 'index.php?module=items/item&path=25&id=' . $row['id'],
+            'entity_id' => 25, 'record_id' => $row['id'], 'total' => null,
+        ];
+    }
+}
+
+// ============================================================
+// TASKS (entity 36) - open tasks
+// ============================================================
+$result = $conn->query("
+    SELECT id, field_328 as task, field_329 as priority,
+           field_330 as done, field_332 as due_date, date_added
+    FROM app_entity_36
+    WHERE (field_330 = '' OR field_330 IS NULL OR field_330 = '0') $biz_filter_tasks
+    ORDER BY date_added DESC
+");
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $due = (int)$row['due_date'];
+        $added = (int)$row['date_added'];
+        $priority = $row['priority'] ?: 'Medium';
+
+        if ($due > 0 && $due < $today_start) {
+            $urgency = $priority === 'High' ? 95 : 75;
+            $section = 'high';
+        } elseif ($due > 0 && $due >= $today_start && $due < $today_end) {
+            $urgency = $priority === 'High' ? 65 : 55;
+            $section = 'medium';
+        } elseif ($due > 0 && $due < $week_end) {
+            $urgency = 15; $section = 'low';
+        } else {
+            $urgency = $priority === 'High' ? 45 : 10;
+            $section = $priority === 'High' ? 'medium' : 'low';
+        }
+
+        $items[] = [
+            'type' => 'task', 'icon' => 'fa-check-square-o', 'icon_color' => '#9b59b6',
+            'label' => $priority . ' Task',
+            'title' => $row['task'] ?: 'Untitled Task',
+            'subtitle' => $due > 0 ? 'Due: ' . date('M j', $due) : 'No due date',
+            'phone' => null, 'time' => $added, 'appt_time' => 0,
+            'urgency' => $urgency, 'section' => $section,
+            'action_label' => 'Mark Done',
+            'action_url' => 'index.php?module=items/item&path=36&id=' . $row['id'],
+            'entity_id' => 36, 'record_id' => $row['id'], 'total' => null,
+            'ajax_action' => 'mark_done',
+        ];
+    }
+}
+
+// ============================================================
+// APPOINTMENTS (entity 29) - today and upcoming
+// ============================================================
+$result = $conn->query("
+    SELECT id, field_255 as title, field_257 as appt_time,
+           field_258 as location, field_260 as confirmed
+    FROM app_entity_29
+    WHERE field_257 >= $today_start
+    ORDER BY field_257 ASC LIMIT 20
+");
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $appt = (int)$row['appt_time'];
+
+        if ($appt >= $today_start && $appt < $today_end) {
+            $urgency = 70; $section = 'high';
+        } elseif ($appt < $week_end) {
+            $urgency = 15; $section = 'low';
+        } else {
+            continue;
+        }
+
+        $items[] = [
+            'type' => 'appointment', 'icon' => 'fa-calendar', 'icon_color' => '#27ae60',
+            'label' => 'Appointment',
+            'title' => $row['title'] ?: 'Appointment',
+            'subtitle' => ($row['location'] ? $row['location'] . ' - ' : '') . date('g:i A', $appt),
+            'phone' => null, 'time' => $appt, 'appt_time' => $appt,
+            'urgency' => $urgency, 'section' => $section,
+            'action_label' => date('g:i A', $appt),
+            'action_url' => 'index.php?module=items/item&path=29&id=' . $row['id'],
+            'entity_id' => 29, 'record_id' => $row['id'], 'total' => null,
+        ];
+    }
+}
+
+$conn->close();
+
+// ============================================================
+// Group and sort
+// ============================================================
+$sections = [
+    'high'   => ['label' => 'HIGH', 'color' => '#e74c3c', 'items' => []],
+    'medium' => ['label' => 'MEDIUM', 'color' => '#f39c12', 'items' => []],
+    'low'    => ['label' => 'LOW', 'color' => '#95a5a6', 'items' => []],
+];
+
+foreach ($items as $item) {
+    if (isset($sections[$item['section']])) {
+        $sections[$item['section']]['items'][] = $item;
+    }
+}
+
+foreach ($sections as &$sec) {
+    usort($sec['items'], fn($a, $b) => $b['urgency'] - $a['urgency']);
+}
+unset($sec);
+
+function time_ago($timestamp) {
+    $diff = time() - $timestamp;
+    if ($diff < 0) {
+        $diff = abs($diff);
+        if ($diff < 3600) return 'in ' . ceil($diff / 60) . 'min';
+        if ($diff < 86400) return 'in ' . ceil($diff / 3600) . 'hr';
+        return 'in ' . ceil($diff / 86400) . 'd';
+    }
+    if ($diff < 60) return 'just now';
+    if ($diff < 3600) return floor($diff / 60) . 'min ago';
+    if ($diff < 86400) return floor($diff / 3600) . 'hr ago';
+    if ($diff < 604800) return floor($diff / 86400) . 'd ago';
+    return date('M j', $timestamp);
+}
+
+$total_items = array_sum(array_map(fn($s) => count($s['items']), $sections));
+?>
+
+<style>
+.action-feed { padding: 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.feed-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.feed-header h2 { margin: 0; font-size: 22px; color: #333; }
+.feed-header .date { color: #888; font-size: 14px; }
+.feed-summary { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.feed-summary .count-badge { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; color: white; }
+
+.feed-section { margin-bottom: 24px; }
+.feed-section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 8px 12px; border-radius: 6px; }
+.feed-section-header h3 { margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; color: white; }
+.feed-section-header .section-count { background: rgba(255,255,255,0.3); padding: 2px 8px; border-radius: 10px; font-size: 11px; color: white; font-weight: 600; }
+
+.feed-item { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 6px; background: white; border-radius: 8px; border: 1px solid #eee; transition: border-color 0.15s; }
+.feed-item:hover { border-color: #ccc; }
+.feed-item-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; flex-shrink: 0; }
+.feed-item-content { flex: 1; min-width: 0; }
+.feed-item-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #888; }
+.feed-item-title { font-size: 14px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feed-item-sub { font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feed-item-time { font-size: 11px; color: #aaa; white-space: nowrap; text-align: right; min-width: 60px; }
+.feed-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.feed-btn { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; white-space: nowrap; }
+.feed-btn-primary { background: #3498db; color: white; }
+.feed-btn-primary:hover { background: #2980b9; color: white; text-decoration: none; }
+.feed-btn-phone { background: #27ae60; color: white; }
+.feed-btn-phone:hover { background: #219a52; color: white; text-decoration: none; }
+.feed-btn-done { background: #95a5a6; color: white; }
+.feed-btn-done:hover { background: #7f8c8d; color: white; text-decoration: none; }
+
+.feed-empty { text-align: center; padding: 60px 20px; color: #aaa; }
+.feed-empty i { font-size: 48px; margin-bottom: 10px; display: block; }
+.feed-empty p { font-size: 16px; }
+
+.quick-add { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.quick-add a { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; text-decoration: none; border: 1px solid #ddd; color: #555; background: white; }
+.quick-add a:hover { border-color: #3498db; color: #3498db; text-decoration: none; }
+
+.biz-filter { display: flex; gap: 4px; }
+.biz-btn { padding: 5px 12px; border-radius: 16px; font-size: 12px; font-weight: 600; text-decoration: none; border: 1px solid #ddd; color: #666; background: white; }
+.biz-btn:hover { border-color: #3498db; color: #3498db; text-decoration: none; }
+.biz-btn.active { background: #3498db; color: white; border-color: #3498db; }
+</style>
+
+<div class="action-feed">
+    <div class="feed-header">
+        <h2>Today</h2>
+        <div style="display:flex; align-items:center; gap:12px;">
+            <div class="biz-filter">
+                <a href="index.php?module=dashboard" class="biz-btn <?= $selected_biz === 0 ? 'active' : '' ?>">All</a>
+                <?php foreach ($businesses as $bid => $bname): ?>
+                <a href="index.php?module=dashboard&biz=<?= $bid ?>" class="biz-btn <?= $selected_biz === $bid ? 'active' : '' ?>"><?= htmlspecialchars($bname) ?></a>
+                <?php endforeach; ?>
+            </div>
+            <span class="date"><?= date('l, F j') ?></span>
+        </div>
+    </div>
+
+    <div class="feed-summary">
+        <?php if (count($sections['high']['items'])): ?>
+        <span class="count-badge" style="background:#e74c3c"><?= count($sections['high']['items']) ?> high</span>
+        <?php endif; ?>
+        <?php if (count($sections['medium']['items'])): ?>
+        <span class="count-badge" style="background:#f39c12"><?= count($sections['medium']['items']) ?> medium</span>
+        <?php endif; ?>
+        <?php if (count($sections['low']['items'])): ?>
+        <span class="count-badge" style="background:#95a5a6"><?= count($sections['low']['items']) ?> low</span>
+        <?php endif; ?>
+    </div>
+
+    <div class="quick-add">
+        <a href="index.php?module=items/items&path=42&action=new"><i class="fa fa-plus"></i> New Job</a>
+        <a href="index.php?module=items/items&path=25&action=new"><i class="fa fa-plus"></i> New Lead</a>
+        <a href="index.php?module=items/items&path=36&action=new"><i class="fa fa-plus"></i> New Task</a>
+        <a href="index.php?module=items/items&path=29&action=new"><i class="fa fa-plus"></i> New Appointment</a>
+    </div>
+
+    <?php if ($total_items === 0): ?>
+    <div class="feed-empty">
+        <i class="fa fa-check-circle"></i>
+        <p>Nothing needs attention right now.</p>
+    </div>
+    <?php endif; ?>
+
+    <?php foreach ($sections as $key => $section):
+        if (empty($section['items'])) continue;
+    ?>
+    <div class="feed-section">
+        <div class="feed-section-header" style="background: <?= $section['color'] ?>">
+            <h3><?= $section['label'] ?></h3>
+            <span class="section-count"><?= count($section['items']) ?></span>
+        </div>
+
+        <?php foreach ($section['items'] as $item): ?>
+        <div class="feed-item" id="item-<?= $item['entity_id'] ?>-<?= $item['record_id'] ?>">
+            <div class="feed-item-icon" style="background: <?= $item['icon_color'] ?>">
+                <i class="fa <?= $item['icon'] ?>"></i>
+            </div>
+            <div class="feed-item-content">
+                <div class="feed-item-type"><?= htmlspecialchars($item['label']) ?></div>
+                <div class="feed-item-title"><?= htmlspecialchars($item['title']) ?></div>
+                <div class="feed-item-sub"><?= htmlspecialchars($item['subtitle']) ?>
+                    <?php if ($item['total']): ?> &mdash; $<?= number_format($item['total'], 0) ?><?php endif; ?>
+                </div>
+            </div>
+            <div class="feed-item-time"><?= time_ago($item['time']) ?></div>
+            <div class="feed-item-actions">
+                <?php if ($item['phone']): ?>
+                <a href="tel:<?= htmlspecialchars($item['phone']) ?>" class="feed-btn feed-btn-phone" title="Call <?= htmlspecialchars($item['phone']) ?>"><i class="fa fa-phone"></i></a>
+                <?php endif; ?>
+                <?php if (!empty($item['ajax_action']) && $item['ajax_action'] === 'mark_done'): ?>
+                <button class="feed-btn feed-btn-primary" onclick="markDone(<?= $item['record_id'] ?>, this)"><i class="fa fa-check"></i> Done</button>
+                <?php else: ?>
+                <a href="<?= $item['action_url'] ?>" class="feed-btn feed-btn-primary"><?= htmlspecialchars($item['action_label']) ?></a>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php endforeach; ?>
+</div>
+
+<script>
+function markDone(recordId, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+    fetch('plugins/claude/includes/ajax_action.php?action=mark_done&entity=36&id=' + recordId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                var item = btn.closest('.feed-item');
+                item.style.opacity = '0.4';
+                item.style.transition = 'opacity 0.3s';
+                btn.outerHTML = '<button class="feed-btn feed-btn-phone" onclick="undoDone(' + recordId + ', this)"><i class="fa fa-undo"></i> Undo</button>';
+            } else {
+                btn.innerHTML = 'Error';
+                btn.disabled = false;
+            }
+        })
+        .catch(function() { btn.innerHTML = 'Error'; btn.disabled = false; });
+}
+
+function undoDone(recordId, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+    fetch('plugins/claude/includes/ajax_action.php?action=undo_done&entity=36&id=' + recordId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                var item = btn.closest('.feed-item');
+                item.style.opacity = '1';
+                btn.outerHTML = '<button class="feed-btn feed-btn-primary" onclick="markDone(' + recordId + ', this)"><i class="fa fa-check"></i> Done</button>';
+            } else {
+                btn.innerHTML = 'Error';
+                btn.disabled = false;
+            }
+        })
+        .catch(function() { btn.innerHTML = 'Error'; btn.disabled = false; });
+}
+</script>

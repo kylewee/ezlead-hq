@@ -14,9 +14,17 @@ require_once '/var/www/ezlead-platform/lib/StripeClient.php';
 // Diagnostic workflow
 require_once __DIR__ . '/DiagnosticService.php';
 
-// Stripe config - set your key here or in environment
-$GLOBALS['STRIPE_SECRET_KEY'] = getenv('STRIPE_SECRET_KEY') ?: '';
-$stripe = new StripeClient();
+// Stripe config - load from .env
+$envFile = '/var/www/ezlead-platform/.env';
+if (file_exists($envFile)) {
+    foreach (file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        if (str_starts_with($line, '#') || !str_contains($line, '=')) continue;
+        [$k, $v] = explode('=', $line, 2);
+        $GLOBALS[trim($k)] = trim($v);
+    }
+}
+$GLOBALS['STRIPE_SECRET_KEY'] = $GLOBALS['STRIPE_SECRET_KEY'] ?? getenv('STRIPE_SECRET_KEY') ?: '';
+$stripe = new StripeClient($GLOBALS['STRIPE_SECRET_KEY'] ?? null);
 
 // Direct connection to rukovoditel database
 $conn = new mysqli('localhost', 'kylewee', 'rainonin', 'rukovoditel');
@@ -48,12 +56,13 @@ function send_email($to, $subject, $body, $from_email, $from_name) {
 }
 
 /**
- * Send SMS via httpSMS
+ * Send SMS via SignalWire (10DLC approved Feb 2026)
  */
 function send_sms($to, $message) {
-    $url = 'https://api.httpsms.com/v1/messages/send';
-    $key = 'uk_duHnz6A4dYRbzwCRMeKrwkyiFQGAwDjzhoUOizerzkts_mGvKner3y8-iClYKEGq';
-    $from = '+13864191875';
+    $project_id = 'ce4806cb-ccb0-41e9-8bf1-7ea59536adfd';
+    $api_token  = 'PT1c8cf22d1446d4d9daaf580a26ad92729e48a4a33beb769a';
+    $space      = 'mobilemechanic.signalwire.com';
+    $from       = '+19042175152';
 
     // Normalize to +1XXXXXXXXXX
     $digits = preg_replace('/\D/', '', $to);
@@ -61,18 +70,20 @@ function send_sms($to, $message) {
     if (strlen($digits) !== 11 || $digits[0] !== '1') return false;
     $to = '+' . $digits;
 
+    $url = "https://{$space}/api/laml/2010-04-01/Accounts/{$project_id}/Messages.json";
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'x-api-key: ' . $key],
-        CURLOPT_POSTFIELDS     => json_encode(['content' => $message, 'from' => $from, 'to' => $to]),
+        CURLOPT_USERPWD        => "{$project_id}:{$api_token}",
+        CURLOPT_POSTFIELDS     => http_build_query(['From' => $from, 'To' => $to, 'Body' => $message]),
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 10,
     ]);
     $resp = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    $result = json_decode($resp, true);
-    return ($result['status'] ?? '') === 'success';
+    echo "  SMS to $to: HTTP $http_code" . ($http_code === 201 ? " SENT" : " FAILED: $resp") . "\n";
+    return $http_code === 201;
 }
 
 /**
@@ -135,7 +146,7 @@ $sql = "SELECT id, field_354 as name, field_355 as phone, field_356 as email,
         FROM app_entity_42
         WHERE field_362 = " . ($stage_ids['new_lead'] ?? 1) . "
         AND (field_367 IS NULL OR field_367 = '')
-        AND field_358 != '' AND field_359 != '' AND field_360 != ''";
+        AND (field_359 != '' OR field_360 != '' OR field_361 != '')";
 
 $result = $conn->query($sql);
 $estimates_sent = 0;
@@ -182,7 +193,8 @@ while ($row = $result->fetch_assoc()) {
 
     // SMS customer
     if (!empty($row['phone'])) {
-        $sms = "Hi " . $row['name'] . "! Ez Mobile Mechanic here. Your estimate for your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . " (" . $row['problem'] . "): " . $estimate . " Call/text (904) 706-6669 to schedule.";
+        $total = number_format(floatval($row['total']), 2);
+        $sms = "Hi " . $row['name'] . "! Ez Mobile Mechanic here. Estimate for your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . ": ~$" . $total . ". View details & approve: https://mobilemechanic.best/accept/" . $row['id'] . " Or reply YES to book.";
         send_sms($row['phone'], $sms);
     }
 
@@ -193,6 +205,90 @@ while ($row = $result->fetch_assoc()) {
 
     $estimates_sent++;
     echo "Estimate sent to " . $row['email'] . " for job #" . $row['id'] . "\n";
+}
+
+
+// ============================================
+// 1b. SMART SCHEDULING: Accepted -> send time slots
+//     Sends 3 available slots, customer replies 1/2/3
+// ============================================
+echo "Checking for accepted jobs needing scheduling...\n";
+
+// Kyle's availability: Mon-Fri 8am-5pm, Sat 9am-1pm
+$availability = [
+    1 => ['08:00', '17:00'], // Monday
+    2 => ['08:00', '17:00'], // Tuesday
+    3 => ['08:00', '17:00'], // Wednesday
+    4 => ['08:00', '17:00'], // Thursday
+    5 => ['08:00', '17:00'], // Friday
+    6 => ['09:00', '13:00'], // Saturday
+    // 0 => Sunday - not available
+];
+
+// Find next 3 available 2-hour slots (skip days with existing appointments)
+function get_available_slots($conn, $availability, $count = 3) {
+    $slots = [];
+    $checkDate = new DateTime('tomorrow');
+    $maxDays = 14; // Look up to 2 weeks out
+
+    // Get existing appointments
+    $result = $conn->query("SELECT field_368 FROM app_entity_42 WHERE field_368 > 0 AND field_362 IN (85, 86, 87, 88)");
+    $booked = [];
+    while ($row = $result->fetch_assoc()) {
+        $booked[] = date('Y-m-d', (int)$row['field_368']);
+    }
+
+    for ($i = 0; $i < $maxDays && count($slots) < $count; $i++) {
+        $dow = (int)$checkDate->format('w'); // 0=Sun, 1=Mon...
+        if (isset($availability[$dow])) {
+            $dateStr = $checkDate->format('Y-m-d');
+            // Count bookings on this day
+            $dayBookings = array_count_values($booked)[$dateStr] ?? 0;
+            if ($dayBookings < 3) { // Max 3 jobs per day
+                $startHour = (int)substr($availability[$dow][0], 0, 2);
+                // Pick a slot: morning if available, else midday
+                $slotHour = ($dayBookings === 0) ? $startHour : $startHour + 2 * $dayBookings;
+                $endHour = (int)substr($availability[$dow][1], 0, 2);
+                if ($slotHour < $endHour - 1) {
+                    $slotTime = $checkDate->format('Y-m-d') . ' ' . sprintf('%02d:00:00', $slotHour);
+                    $slots[] = [
+                        'datetime' => $slotTime,
+                        'timestamp' => strtotime($slotTime),
+                        'display' => $checkDate->format('D n/j') . ' ' . date('ga', strtotime($slotTime)),
+                    ];
+                }
+            }
+        }
+        $checkDate->modify('+1 day');
+    }
+    return $slots;
+}
+
+$sql = "SELECT id, field_354 as name, field_355 as phone
+        FROM app_entity_42
+        WHERE field_362 = " . ($stage_ids['accepted'] ?? 84) . "
+        AND field_368 = 0";
+
+$result = $conn->query($sql);
+while ($row = $result->fetch_assoc()) {
+    if (empty($row['phone'])) continue;
+
+    $slots = get_available_slots($conn, $availability);
+    if (empty($slots)) continue;
+
+    // Build SMS with slot options
+    $sms = "Hi " . $row['name'] . "! Great news - your repair is approved. Pick a time:\n";
+    foreach ($slots as $i => $slot) {
+        $sms .= ($i + 1) . ") " . $slot['display'] . "\n";
+    }
+    $sms .= "Reply 1, 2, or 3 to book. - Ez Mobile Mechanic";
+
+    send_sms($row['phone'], $sms);
+    echo "  SMS to {$row['phone']}: scheduling slots sent for job #{$row['id']}\n";
+
+    // Store pending slots in notes so SMS handler can look them up
+    $slotsJson = json_encode(array_map(fn($s) => $s['timestamp'], $slots));
+    $conn->query("UPDATE app_entity_42 SET field_372 = CONCAT(IFNULL(field_372,''), '\nPENDING_SLOTS:" . $conn->real_escape_string($slotsJson) . "'), date_updated = " . time() . " WHERE id = " . intval($row['id']));
 }
 
 // ============================================
@@ -358,8 +454,8 @@ while ($row = $result->fetch_assoc()) {
         send_sms($row['phone'], $sms);
     }
 
-    // Update payment status to Invoice Sent (choice id 2)
-    $conn->query("UPDATE app_entity_42 SET field_371 = 2 WHERE id = " . intval($row['id']));
+    // Update payment status to Invoice Sent (choice id 92)
+    $conn->query("UPDATE app_entity_42 SET field_371 = 92 WHERE id = " . intval($row['id']));
 
     $invoices_sent++;
     echo "Invoice sent for job #" . $row['id'] . " - $" . $total . "\n";

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bill of Sale - Motor Vehicle</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; padding: 10px; }
+.container { max-width: 800px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+h1 { text-align: center; font-size: 22px; margin-bottom: 5px; color: #333; }
+h2 { font-size: 16px; color: #555; margin: 15px 0 8px; border-bottom: 2px solid #007bff; padding-bottom: 4px; }
+.subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 15px; }
+.row { display: flex; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.field { flex: 1; min-width: 140px; }
+.field label { display: block; font-size: 12px; color: #666; margin-bottom: 2px; font-weight: 600; }
+.field input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+.field input:focus { border-color: #007bff; outline: none; }
+.legal { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 12px; margin: 15px 0; font-size: 13px; line-height: 1.5; color: #333; }
+.legal p { margin-bottom: 8px; }
+.legal p:last-child { margin-bottom: 0; }
+.sig-section { margin: 15px 0; }
+.sig-label { font-size: 14px; font-weight: 600; margin-bottom: 5px; color: #333; }
+.sig-canvas { border: 2px solid #333; border-radius: 4px; width: 100%; height: 120px; touch-action: none; cursor: crosshair; background: #fff; }
+.sig-actions { display: flex; gap: 8px; margin-top: 5px; }
+.btn { padding: 10px 20px; border: none; border-radius: 4px; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-clear { background: #dc3545; color: #fff; }
+.btn-print { background: #007bff; color: #fff; flex: 1; }
+.btn-save { background: #28a745; color: #fff; flex: 1; }
+.date-line { margin-top: 5px; font-size: 13px; color: #555; }
+.bottom-actions { display: flex; gap: 10px; margin-top: 20px; }
+.notice { text-align: center; font-size: 11px; color: #999; margin-top: 10px; }
+@media print {
+  body { background: #fff; padding: 0; }
+  .container { box-shadow: none; }
+  .btn, .sig-actions, .bottom-actions { display: none !important; }
+  .sig-canvas { border: 1px solid #000; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>BILL OF SALE</h1>
+  <p class="subtitle">State of Florida - Motor Vehicle</p>
+
+  <h2>Seller Information</h2>
+  <div class="row">
+    <div class="field"><label>Full Legal Name</label><input type="text" id="sellerName" value="Cheney Michelle Shuman"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Address</label><input type="text" id="sellerAddr" value=""></div>
+    <div class="field"><label>Phone</label><input type="text" id="sellerPhone" value=""></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Driver License #</label><input type="text" id="sellerDL" value=""></div>
+    <div class="field"><label>State</label><input type="text" id="sellerState" value="FL"></div>
+  </div>
+
+  <h2>Buyer Information</h2>
+  <div class="row">
+    <div class="field"><label>Full Legal Name</label><input type="text" id="buyerName" value="Kyle Weerts"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Address</label><input type="text" id="buyerAddr" value="7380 County Rd 208 Lot C, St. Augustine, FL 32092"></div>
+    <div class="field"><label>Phone</label><input type="text" id="buyerPhone" value="(904) 217-5152"></div>
+  </div>
+
+  <h2>Vehicle Information</h2>
+  <div class="row">
+    <div class="field"><label>Year</label><input type="text" id="vehYear" value="2007"></div>
+    <div class="field"><label>Make</label><input type="text" id="vehMake" value="Toyota"></div>
+    <div class="field"><label>Model</label><input type="text" id="vehModel" value="Camry New Generation"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>VIN</label><input type="text" id="vehVin" value="4T1BE46K87U031389"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Color</label><input type="text" id="vehColor" value="Gray"></div>
+    <div class="field"><label>Mileage</label><input type="text" id="vehMiles" value="~140,000"></div>
+    <div class="field"><label>Engine</label><input type="text" id="vehEngine" value="2.4L 4-Cylinder (2AZ-FE)"></div>
+  </div>
+
+  <h2>Sale Terms</h2>
+  <div class="row">
+    <div class="field"><label>Sale Price ($)</label><input type="text" id="salePrice" value="1,000.00"></div>
+    <div class="field"><label>Payment Method</label><input type="text" id="payMethod" value="Cash"></div>
+    <div class="field"><label>Date of Sale</label><input type="text" id="saleDate" value=""></div>
+  </div>
+
+  <div class="legal">
+    <p><strong>1. TRANSFER OF OWNERSHIP.</strong> The Seller hereby sells, transfers, and conveys to the Buyer the above-described motor vehicle for the stated purchase price, receipt of which is hereby acknowledged. This sale is final and paid in full.</p>
+
+    <p><strong>2. TITLE STATUS.</strong> The Seller represents that the certificate of title for this vehicle is currently held by a third-party automobile dealership due to a separate and unrelated financial obligation of the Seller. The Seller affirms that the vehicle itself is free and clear of any liens, encumbrances, or security interests. The Seller agrees to cooperate fully with the Buyer in obtaining a replacement or bonded title through the Florida DHSMV, including but not limited to: signing any required affidavits, providing proof of ownership history, and appearing at the tax collector's office if necessary.</p>
+
+    <p><strong>3. AS-IS SALE.</strong> This vehicle is sold "AS IS" with no warranties, express or implied, regarding its condition, merchantability, or fitness for any particular purpose. The Buyer has inspected the vehicle and accepts it in its present condition.</p>
+
+    <p><strong>4. SELLER'S WARRANTY OF OWNERSHIP.</strong> The Seller warrants that they are the lawful owner of this vehicle and have the legal right to sell it. The Seller warrants that the vehicle is not stolen, and that there are no liens, claims, or encumbrances against the vehicle itself (distinct from the title situation described above).</p>
+
+    <p><strong>5. INDEMNIFICATION.</strong> The Seller agrees to indemnify and hold harmless the Buyer against any claims, damages, or expenses arising from any breach of the Seller's representations in this Bill of Sale.</p>
+
+    <p><strong>6. GOVERNING LAW.</strong> This Bill of Sale shall be governed by the laws of the State of Florida.</p>
+  </div>
+
+  <h2>Signatures</h2>
+
+  <div class="sig-section">
+    <div class="sig-label">Seller Signature</div>
+    <canvas id="sellerSig" class="sig-canvas"></canvas>
+    <div class="sig-actions">
+      <button class="btn btn-clear" onclick="clearSig('sellerSig')">Clear</button>
+    </div>
+    <div class="date-line">Date: <span id="sellerSigDate"></span></div>
+  </div>
+
+  <div class="sig-section">
+    <div class="sig-label">Buyer Signature</div>
+    <canvas id="buyerSig" class="sig-canvas"></canvas>
+    <div class="sig-actions">
+      <button class="btn btn-clear" onclick="clearSig('buyerSig')">Clear</button>
+    </div>
+    <div class="date-line">Date: <span id="buyerSigDate"></span></div>
+  </div>
+
+  <div class="bottom-actions">
+    <button class="btn btn-save" onclick="savePDF()">Save as Image</button>
+    <button class="btn btn-print" onclick="window.print()">Print</button>
+  </div>
+
+  <p class="notice">This document serves as a legal bill of sale for a private motor vehicle transaction in the State of Florida.</p>
+</div>
+
+<script>
+// Auto-fill today's date
+const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+document.getElementById('saleDate').value = today;
+document.getElementById('sellerSigDate').textContent = today;
+document.getElementById('buyerSigDate').textContent = today;
+
+// Signature pad logic
+function initSigPad(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  let lastX, lastY;
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches ? e.touches[0] : e;
+    return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+  }
+
+  function start(e) {
+    e.preventDefault();
+    drawing = true;
+    const pos = getPos(e);
+    lastX = pos.x;
+    lastY = pos.y;
+  }
+
+  function move(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+    lastX = pos.x;
+    lastY = pos.y;
+  }
+
+  function end(e) {
+    e.preventDefault();
+    drawing = false;
+  }
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('mouseleave', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end, { passive: false });
+}
+
+initSigPad('sellerSig');
+initSigPad('buyerSig');
+
+function clearSig(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function savePDF() {
+  // Convert inputs to text for the saved version
+  const inputs = document.querySelectorAll('input');
+  inputs.forEach(inp => {
+    const span = document.createElement('span');
+    span.textContent = inp.value;
+    span.style.fontWeight = '600';
+    span.style.fontSize = '14px';
+    inp.parentNode.replaceChild(span, inp);
+  });
+
+  // Hide buttons
+  document.querySelectorAll('.btn, .sig-actions, .bottom-actions, .notice').forEach(el => el.style.display = 'none');
+
+  html2canvas(document.querySelector('.container'), { scale: 2 }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = 'bill-of-sale-' + new Date().toISOString().split('T')[0] + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    // Reload to restore inputs
+    setTimeout(() => location.reload(), 500);
+  }).catch(() => {
+    // Fallback: just print
+    window.print();
+    location.reload();
+  });
+}
+
+// Load html2canvas from CDN for save feature
+const script = document.createElement('script');
+script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+document.head.appendChild(script);
+</script>
+</body>
+</html>

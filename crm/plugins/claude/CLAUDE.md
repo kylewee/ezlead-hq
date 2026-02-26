@@ -22,7 +22,7 @@
 | 368 | Appointment | DateTime |
 | 369 | Parts to Order | Text |
 | 370 | Payment Link | Text |
-| 371 | Payment Status | Dropdown (91=Pending, 92=Paid, 93=Partial, 94=Refunded) |
+| 371 | Payment Status | Dropdown (91=Pending, 92=Invoice Sent, 93=Paid, 94=Overdue) |
 | 372 | Notes | Textarea |
 | 373 | Recording | File |
 | 374 | Transcript | Textarea |

@@ -136,77 +136,169 @@ Be concise and professional. Format for email.";
 }
 
 // ============================================
-// 1. AUTO-ESTIMATE: New leads without estimate
+// 1. ESTIMATE DELIVERY: Pending estimates with data -> send to customer
 // ============================================
-echo "Checking for new leads needing estimates...\n";
+echo "Checking for pending estimates ready to send...\n";
 
-$sql = "SELECT id, field_354 as name, field_355 as phone, field_356 as email,
-               field_358 as year, field_359 as make, field_360 as model,
-               field_361 as problem, field_362 as stage, field_367 as estimate
-        FROM app_entity_42
-        WHERE field_362 = " . ($stage_ids['new_lead'] ?? 1) . "
-        AND (field_367 IS NULL OR field_367 = '')
-        AND (field_359 != '' OR field_360 != '' OR field_361 != '')";
+$sql = "SELECT e.id, e.field_515 as title, e.field_516 as customer_id, e.field_517 as vehicle_id,
+               e.field_519 as status, e.field_520 as problem,
+               e.field_522 as labor_hours, e.field_523 as parts_cost,
+               e.field_524 as labor_cost, e.field_525 as total_low, e.field_526 as total_high,
+               e.field_527 as estimate_details,
+               c.field_427 as cust_name, c.field_428 as cust_phone, c.field_429 as cust_email,
+               v.field_434 as year, v.field_435 as make, v.field_436 as model
+        FROM app_entity_53 e
+        LEFT JOIN app_entity_47 c ON e.field_516 = c.id
+        LEFT JOIN app_entity_48 v ON e.field_517 = v.id
+        WHERE e.field_519 = 205
+        AND (e.field_522 > 0 OR e.field_527 != '')";
 
 $result = $conn->query($sql);
 $estimates_sent = 0;
 
 while ($row = $result->fetch_assoc()) {
-    if (empty($row['email']) && empty($row['phone'])) continue;
+    if (empty($row['cust_email']) && empty($row['cust_phone'])) continue;
 
-    // Generate estimate
-    $estimate = generate_estimate($row['year'], $row['make'], $row['model'], $row['problem']);
+    $vehicleStr = trim("{$row['year']} {$row['make']} {$row['model']}");
 
-    // Save estimate to job
-    $estimate_escaped = $conn->real_escape_string($estimate);
-    $conn->query("UPDATE app_entity_42 SET
-                  field_367 = '$estimate_escaped',
-                  field_362 = " . ($stage_ids['estimate_sent'] ?? 2) . "
-                  WHERE id = " . intval($row['id']));
+    // If estimate fields are empty but we have vehicle+problem, generate now
+    if (empty($row['estimate_details']) && !empty($row['year']) && !empty($row['make']) && !empty($row['model']) && !empty($row['problem'])) {
+        $estimateText = generate_estimate($row['year'], $row['make'], $row['model'], $row['problem']);
+        $estimate_escaped = $conn->real_escape_string($estimateText);
+        $conn->query("UPDATE app_entity_53 SET field_527 = '{$estimate_escaped}' WHERE id = " . intval($row['id']));
+        $row['estimate_details'] = $estimateText;
+    }
 
     // Generate PDF estimate
     $pdfPath = PDFGenerator::estimate([
-        'id' => $row['id'], 'name' => $row['name'], 'phone' => $row['phone'],
-        'email' => $row['email'], 'year' => $row['year'], 'make' => $row['make'],
-        'model' => $row['model'], 'problem' => $row['problem'], 'estimate' => $estimate,
+        'id' => $row['id'], 'name' => $row['cust_name'], 'phone' => $row['cust_phone'],
+        'email' => $row['cust_email'], 'year' => $row['year'], 'make' => $row['make'],
+        'model' => $row['model'], 'problem' => $row['problem'],
+        'estimate' => $row['estimate_details'],
     ]);
     $pdfUrl = $pdfPath ? PDFGenerator::getPublicUrl($pdfPath) : '';
     $pdfLink = $pdfUrl ? "<p><a href='$pdfUrl' style='background:#1e40af; color:white; padding:10px 20px; text-decoration:none; border-radius:6px; display:inline-block;'>View PDF Estimate</a></p>" : '';
 
     // Email customer
-    $subject = "Your Vehicle Repair Estimate - " . $row['year'] . " " . $row['make'] . " " . $row['model'];
+    $subject = "Your Vehicle Repair Estimate - " . $vehicleStr;
     $body = "
-    <h2>Hello " . htmlspecialchars($row['name']) . ",</h2>
+    <h2>Hello " . htmlspecialchars($row['cust_name']) . ",</h2>
     <p>Thank you for contacting Ez Mobile Mechanic! Here's your estimate:</p>
     <div style='background:#f5f5f5; padding:15px; border-radius:8px; margin:20px 0;'>
-        <h3>Vehicle: " . htmlspecialchars($row['year'] . " " . $row['make'] . " " . $row['model']) . "</h3>
+        <h3>Vehicle: " . htmlspecialchars($vehicleStr) . "</h3>
         <p><strong>Issue:</strong> " . htmlspecialchars($row['problem']) . "</p>
         <hr>
-        <pre style='white-space:pre-wrap;'>" . htmlspecialchars($estimate) . "</pre>
+        <pre style='white-space:pre-wrap;'>" . htmlspecialchars($row['estimate_details']) . "</pre>
     </div>
     $pdfLink
     <p>To schedule your repair, simply reply to this email or call us at (904) 706-6669.</p>
     <p>Thanks,<br>Kyle<br>Ez Mobile Mechanic</p>
     ";
 
-    if (!empty($row['email'])) send_email($row['email'], $subject, $body, $from_email, $from_name);
+    if (!empty($row['cust_email'])) send_email($row['cust_email'], $subject, $body, $from_email, $from_name);
 
     // SMS customer
-    if (!empty($row['phone'])) {
-        $total = number_format(floatval($row['total']), 2);
-        $sms = "Hi " . $row['name'] . "! Ez Mobile Mechanic here. Estimate for your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . ": ~$" . $total . ". View details & approve: https://mobilemechanic.best/accept/" . $row['id'] . " Or reply YES to book.";
-        send_sms($row['phone'], $sms);
+    if (!empty($row['cust_phone'])) {
+        $totalLow = number_format(floatval($row['total_low']), 0);
+        $totalHigh = number_format(floatval($row['total_high']), 0);
+        $priceStr = ($totalLow && $totalHigh) ? "\${$totalLow}-\${$totalHigh}" : "see details";
+        $sms = "Hi {$row['cust_name']}! Ez Mobile Mechanic here. Estimate for your {$vehicleStr}: {$priceStr}. Reply YES to approve or call (904) 706-6669. Thanks!";
+        send_sms($row['cust_phone'], $sms);
     }
 
+    // Update estimate status to Sent (206)
+    $conn->query("UPDATE app_entity_53 SET field_519 = 206 WHERE id = " . intval($row['id']));
+
     // Notify business
-    send_email($business_email, "Estimate Sent: " . $row['name'],
-               "Estimate sent to " . $row['email'] . " for " . $row['year'] . " " . $row['make'] . " " . $row['model'],
+    send_email($business_email, "Estimate Sent: " . $row['cust_name'],
+               "Estimate #{$row['id']} sent to " . ($row['cust_email'] ?: $row['cust_phone']) . " for " . $vehicleStr,
                $from_email, $from_name);
 
     $estimates_sent++;
-    echo "Estimate sent to " . $row['email'] . " for job #" . $row['id'] . "\n";
+    echo "Estimate #{$row['id']} sent to " . ($row['cust_email'] ?: $row['cust_phone']) . "\n";
 }
 
+// ============================================
+// 1a. ESTIMATE ACCEPTED: Create Job from accepted Estimate
+// ============================================
+echo "Checking for accepted estimates...\n";
+
+$sql = "SELECT e.id as estimate_id, e.field_515 as title, e.field_516 as customer_id,
+               e.field_517 as vehicle_id, e.field_518 as lead_id,
+               e.field_520 as problem, e.field_522 as labor_hours,
+               e.field_523 as parts_cost, e.field_524 as labor_cost,
+               e.field_525 as total_low, e.field_526 as total_high,
+               e.field_527 as estimate_details, e.field_529 as existing_job,
+               c.field_427 as cust_name, c.field_428 as cust_phone,
+               c.field_429 as cust_email, c.field_430 as cust_address,
+               v.field_434 as year, v.field_435 as make, v.field_436 as model
+        FROM app_entity_53 e
+        LEFT JOIN app_entity_47 c ON e.field_516 = c.id
+        LEFT JOIN app_entity_48 v ON e.field_517 = v.id
+        WHERE e.field_519 = 207
+        AND (e.field_529 IS NULL OR e.field_529 = '' OR e.field_529 = '0')";
+
+$result = $conn->query($sql);
+$jobs_created = 0;
+
+while ($row = $result->fetch_assoc()) {
+    // Create Job (entity 42) from Estimate data
+    $jobFields = [
+        'field_354' => $row['cust_name'] ?? 'Unknown',
+        'field_355' => $row['cust_phone'] ?? '',
+        'field_356' => $row['cust_email'] ?? '',
+        'field_357' => $row['cust_address'] ?? '',
+        'field_358' => $row['year'] ?? '',
+        'field_359' => $row['make'] ?? '',
+        'field_360' => $row['model'] ?? '',
+        'field_361' => $row['problem'] ?? '',
+        'field_362' => ($stage_ids['accepted'] ?? 84),
+        'field_363' => $row['labor_hours'] ?? 0,
+        'field_364' => $row['parts_cost'] ?? 0,
+        'field_365' => $row['labor_cost'] ?? 0,
+        'field_366' => $row['total_high'] ?? 0,
+        'field_367' => $row['estimate_details'] ?? '',
+        'field_371' => 91,  // Payment Status = Pending
+        'field_372' => "Created from Estimate #{$row['estimate_id']}",
+    ];
+
+    if ($row['customer_id']) $jobFields['field_439'] = $row['customer_id'];
+    if ($row['vehicle_id']) $jobFields['field_440'] = $row['vehicle_id'];
+
+    // Build SQL insert
+    $sqlCols = [];
+    $sqlVals = [];
+    foreach ($jobFields as $field => $value) {
+        $sqlCols[] = $field;
+        $sqlVals[] = "'" . $conn->real_escape_string((string)$value) . "'";
+    }
+
+    $insertSql = "INSERT INTO app_entity_42 (" . implode(', ', $sqlCols) . ", date_added, created_by)
+                   VALUES (" . implode(', ', $sqlVals) . ", NOW(), 0)";
+    $conn->query($insertSql);
+    $jobId = $conn->insert_id;
+
+    if ($jobId) {
+        // Link Job back to Estimate
+        $conn->query("UPDATE app_entity_53 SET field_529 = {$jobId} WHERE id = " . intval($row['estimate_id']));
+
+        // Link Lead to Job if available
+        if ($row['lead_id']) {
+            $conn->query("UPDATE app_entity_42 SET field_445 = " . intval($row['lead_id']) . " WHERE id = {$jobId}");
+        }
+
+        // Notify business
+        $vehicleStr = trim("{$row['year']} {$row['make']} {$row['model']}");
+        send_email($business_email, "Estimate Accepted: {$row['cust_name']} - {$vehicleStr}",
+                   "Job #{$jobId} created from accepted Estimate #{$row['estimate_id']}. "
+                   . "Customer: {$row['cust_name']} ({$row['cust_phone']}). "
+                   . "Vehicle: {$vehicleStr}. Total: \${$row['total_high']}",
+                   $from_email, $from_name);
+
+        $jobs_created++;
+        echo "Job #{$jobId} created from Estimate #{$row['estimate_id']}\n";
+    }
+}
 
 // ============================================
 // 1b. SMART SCHEDULING: Accepted -> send time slots
@@ -805,6 +897,7 @@ if ($result) {
 // ============================================
 echo "\n--- Summary ---\n";
 echo "Estimates sent: $estimates_sent\n";
+echo "Jobs from estimates: $jobs_created\n";
 echo "Reminders sent: $reminders_sent\n";
 echo "Parts warnings: $parts_warnings\n";
 echo "Invoices sent: $invoices_sent\n";

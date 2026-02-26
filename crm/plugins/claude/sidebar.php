@@ -62,6 +62,13 @@ function is_active($check_module, $check_path = '') {
         </a>
     </li>
 
+    <li class="<?= is_active('items/items', '53') . is_active('items/item', '53') ?>">
+        <a href="index.php?module=items/items&path=53">
+            <i class="fa fa-file-text-o"></i>
+            <span class="title">Estimates</span>
+        </a>
+    </li>
+
     <li class="<?= is_active('items/items', '25') . is_active('items/item', '25') ?>">
         <a href="index.php?module=items/items&path=25">
             <i class="fa fa-users"></i>
@@ -151,6 +158,7 @@ function is_active($check_module, $check_path = '') {
 
 </ul>
 
+<script src="<?= dirname($_SERVER['SCRIPT_NAME']) ?>/plugins/claude/quick_edit.js"></script>
 <script>
 function switchBiz(bizId) {
     document.cookie = 'crm_biz=' + bizId + ';path=/crm/;max-age=31536000';

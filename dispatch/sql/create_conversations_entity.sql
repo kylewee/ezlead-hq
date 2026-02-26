@@ -171,6 +171,25 @@ PREPARE stmt FROM @create_table_sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
+-- Values table (required for dropdown field storage)
+SET @create_values_sql = CONCAT(
+  'CREATE TABLE IF NOT EXISTS app_entity_', @entity_id, '_values (',
+  'id int(11) NOT NULL AUTO_INCREMENT, ',
+  'items_id int(11) NOT NULL, ',
+  'fields_id int(11) NOT NULL, ',
+  'value int(11) NOT NULL, ',
+  'PRIMARY KEY (id), ',
+  'KEY idx_items_id (items_id), ',
+  'KEY idx_fields_id (fields_id), ',
+  'KEY idx_items_fields_id (items_id, fields_id), ',
+  'KEY idx_value_id (value)',
+  ') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
+);
+
+PREPARE stmt2 FROM @create_values_sql;
+EXECUTE stmt2;
+DEALLOCATE PREPARE stmt2;
+
 -- -----------------------------------------------
 -- 6. Update the dropdown configuration with choice references
 -- -----------------------------------------------

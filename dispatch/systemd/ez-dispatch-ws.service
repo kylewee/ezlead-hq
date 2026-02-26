@@ -1,0 +1,18 @@
+[Unit]
+Description=EZ Dispatch WebSocket Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/ezlead-hq/dispatch/websocket
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=DISPATCH_WS_TOKEN=dispatch-dev-token
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ez-dispatch-ws
+
+[Install]
+WantedBy=multi-user.target

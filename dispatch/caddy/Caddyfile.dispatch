@@ -1,0 +1,238 @@
+{
+	debug
+	email sodjacksonville@gmail.com
+}
+
+# Test/Dev site - uses full platform
+mechanicstaugustine.com, www.mechanicstaugustine.com {
+	root * /var/www/ezlead-platform
+
+	# Redirect CRM to single instance at ezlead4u.com (consolidated Jan 30, 2026)
+	handle /crm/* {
+		redir https://ezlead4u.com{uri} permanent
+	}
+
+	# Rewrite root to index.php for admin/buyer
+	@indexPhp path /admin/ /buyer/
+	rewrite @indexPhp {path}index.php
+
+	@quote path /q/*
+	@accept path /accept/*
+	rewrite @accept /accept/index.php
+	rewrite @quote /q/index.php
+
+	# Video chat - /video/ROOM_ID -> /video/index.php
+	@videochat1 path_regexp ^/video/([a-f0-9]{8})$
+	rewrite @videochat1 /video/index.php
+
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+
+# Mobile Mechanic - primary mechanic site
+mobilemechanic.best, www.mobilemechanic.best {
+	root * /var/www/ezlead-platform
+
+	# Redirect CRM to single instance at ezlead4u.com
+	handle /crm/* {
+		redir https://ezlead4u.com{uri} permanent
+	}
+
+	# Rewrite root to index.php for admin/buyer
+	@indexPhp path /admin/ /buyer/
+	rewrite @indexPhp {path}index.php
+
+	@quote path /q/*
+	@accept path /accept/*
+	rewrite @accept /accept/index.php
+	rewrite @quote /q/index.php
+
+	# Video chat - /video/ROOM_ID -> /video/index.php
+	@videochat2 path_regexp ^/video/([a-f0-9]{8})$
+	rewrite @videochat2 /video/index.php
+
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+
+# HQ - Admin dashboard and buyer portal
+ezlead4u.com, www.ezlead4u.com {
+	root * /var/www/ezlead-hq
+
+	# FastAPI backend
+	@api path /v1/* /healthz
+	handle @api {
+		reverse_proxy localhost:8001
+	}
+
+	# PHP admin and buyer portals
+	handle {
+		@indexPhp path /admin/ /buyer/ /crm/
+		rewrite @indexPhp {path}index.php
+
+		php_fastcgi unix//run/php/php8.3-fpm.sock
+		file_server
+	}
+}
+
+# SOD Sites - keep at current locations (have index.html)
+sodjacksonvillefl.com, www.sodjacksonvillefl.com {
+	root * /var/www/sodjacksonvillefl.com
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+
+sodjax.com, www.sodjax.com {
+	root * /var/www/sodjax.com
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+
+sodjacksonville.com, www.sodjacksonville.com {
+	root * /var/www/sodjacksonville.com
+	redir /about/ / 301
+	redir /about / 301
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+
+jacksonvillesod.com, www.jacksonvillesod.com {
+	redir * https://sodjacksonville.com{uri} 301
+}
+
+kyle.weerts.us {
+	root * /var/www/kyle.weerts.us
+	file_server
+}
+
+# Local dev
+localhost:8092 {
+	root * /var/www/ezlead-platform
+	@indexPhp path /admin/ /buyer/ /crm/
+	rewrite @indexPhp {path}index.php
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+
+# Land Impressions - 301 redirects to pass SEO authority
+# Using route block to enforce top-to-bottom evaluation order
+landimpressions.com, www.landimpressions.com {
+	header Cache-Control "no-store, no-cache, must-revalidate"
+	route {
+		# SOD pages -> sodjacksonville.com
+		redir /Sod_Installation.html https://sodjacksonville.com/sod-installation/ 301
+		redir /sod_installation.html https://sodjacksonville.com/sod-installation/ 301
+		redir /sod-installation* https://sodjacksonville.com/sod-installation/ 301
+
+		redir /establishing_sod.html https://sodjacksonville.com/new-sod-care/ 301
+		redir /new-sod-care* https://sodjacksonville.com/new-sod-care/ 301
+
+		redir /sod-prices* https://sodjacksonville.com/sod-prices/ 301
+		redir /prices* https://sodjacksonville.com/sod-prices/ 301
+
+		redir /st-augustine* https://sodjacksonville.com/st-augustine-sod/ 301
+		redir /floratam* https://sodjacksonville.com/st-augustine-sod/ 301
+
+		redir /zoysia* https://sodjacksonville.com/zoysia-sod/ 301
+
+		redir /soil-preparation* https://sodjacksonville.com/soil-preparation/ 301
+		redir /about* https://sodjacksonville.com/ 301
+
+		# Drainage pages -> drainagejax.com
+		redir /drainage* https://drainagejax.com/ 301
+		redir /french-drain* https://drainagejax.com/ 301
+		redir /Drainage* https://drainagejax.com/ 301
+
+		# Everything else -> sodjacksonville.com homepage
+		redir * https://sodjacksonville.com/ 301
+	}
+}
+
+# Drainage Jax
+drainagejax.com, www.drainagejax.com {
+	root * /var/www/drainagejax.com
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+
+# Mechanic standalone
+# Mechanic standalone (separate CRM database: mechanic_crm)
+http://localhost:8093 {
+	root * /var/www/crm
+	@indexPhp path /admin/ /crm/
+	rewrite @indexPhp {path}index.php
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+
+# SOD Company - 555 cities, 24 states (HTTP only - Cloudflare Tunnel handles TLS)
+sod.company, www.sod.company {
+	root * /var/www/sod.company.new
+	
+	# PHP only for API
+	handle /api/* {
+		php_fastcgi unix//run/php/php8.3-fpm.sock
+	}
+	
+	# Everything else is static
+	handle {
+		file_server
+	}
+}
+
+# Mechanic CRM (separate database: mechanic_crm)
+
+# Mechanic site (full master-template with quote system)
+mechanic.ezlead4u.com {
+	tls /etc/caddy/certs/mechanic.ezlead4u.com.pem /etc/caddy/certs/mechanic.ezlead4u.com.key
+	root * /var/www/master-template
+
+	# CRM at /crm/ uses mechanic_crm database
+	handle /crm/* {
+		root * /var/www/crm
+		php_fastcgi unix//run/php/php8.3-fpm.sock
+		file_server
+	}
+
+	# Quote form - serve index.html for directory
+	handle /quote/ {
+		rewrite * /quote/index.html
+		file_server
+	}
+
+	# Everything else
+	handle {
+		php_fastcgi unix//run/php/php8.3-fpm.sock
+		file_server
+	}
+
+}
+
+
+nearby.contractors, www.nearby.contractors {
+	root * /var/www/nearby.contractors
+	file_server
+}
+
+# Postiz - Social Media Scheduler
+
+# EZ Dispatch - Communication Dashboard
+dispatch.ezlead4u.com {
+	root * /var/www/ezlead-hq/dispatch/public
+
+	# WebSocket proxy to Node.js
+	handle /ws {
+		reverse_proxy 127.0.0.1:8765
+	}
+
+	# PHP API routes
+	handle /api/* {
+		php_fastcgi unix//run/php/php8.3-fpm.sock
+	}
+
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+social.ezlead4u.com {
+	reverse_proxy localhost:4007
+}

@@ -1,18 +1,37 @@
 <?php
-session_start();
 $config = require __DIR__ . '/../config.php';
+$authToken = hash('sha256', $config['auth']['password'] . ':dispatch-auth');
 
 // Simple auth gate
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password'])) {
     if ($_POST['password'] === $config['auth']['password']) {
-        $_SESSION['dispatch_auth'] = true;
+        setcookie('dispatch_auth', $authToken, [
+            'expires' => time() + 86400 * 30,
+            'path' => '/',
+            'secure' => true,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
         header('Location: /');
         exit;
     }
     $error = 'Wrong password';
 }
 
-if (empty($_SESSION['dispatch_auth'])) {
+// Also allow ?token= for quick access through Cloudflare
+if (!empty($_GET['token']) && $_GET['token'] === $config['auth']['password']) {
+    setcookie('dispatch_auth', $authToken, [
+        'expires' => time() + 86400 * 30,
+        'path' => '/',
+        'secure' => true,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    header('Location: /');
+    exit;
+}
+
+if (($_COOKIE['dispatch_auth'] ?? '') !== $authToken) {
     ?>
     <!DOCTYPE html>
     <html lang="en">
@@ -48,6 +67,7 @@ $jsConfig = json_encode([
     'callsProxyUrl' => '/api/calls.php',
     'smsApiUrl' => '/api/sms.php',
     'crmApiUrl' => '/api/crm.php',
+    'queueApiUrl' => '/api/queue.php',
 ]);
 ?>
 <!DOCTYPE html>
@@ -56,7 +76,7 @@ $jsConfig = json_encode([
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EZ Dispatch</title>
-    <link rel="stylesheet" href="/css/dispatch.css">
+    <link rel="stylesheet" href="/css/dispatch.css?v=<?= filemtime(__DIR__ . '/css/dispatch.css') ?>">
 </head>
 <body>
     <!-- Top Bar -->
@@ -78,13 +98,21 @@ $jsConfig = json_encode([
     <div id="main">
         <!-- Left Sidebar -->
         <aside id="sidebar">
+            <div class="sidebar-actions">
+                <button id="btn-new-sms" class="btn-action">New SMS</button>
+                <button id="btn-new-call" class="btn-action">New Call</button>
+            </div>
             <div class="sidebar-section">
-                <h3>Calls</h3>
+                <h3 id="queue-nav" class="nav-link active">Queue <span id="queue-badge" class="badge hidden">0</span></h3>
+            </div>
+            <hr>
+            <div class="sidebar-section">
+                <h3 id="calls-nav" class="nav-link">Calls</h3>
                 <div id="calls-live" class="convo-list"></div>
                 <div id="calls-missed" class="convo-list"></div>
             </div>
             <div class="sidebar-section">
-                <h3>SMS <span id="sms-badge" class="badge hidden">0</span></h3>
+                <h3 id="sms-nav" class="nav-link">SMS <span id="sms-badge" class="badge hidden">0</span></h3>
                 <div id="sms-list" class="convo-list"></div>
             </div>
             <div class="sidebar-section">
@@ -100,6 +128,49 @@ $jsConfig = json_encode([
 
         <!-- Center Content -->
         <main id="content">
+            <!-- Queue Panel -->
+            <div id="queue-panel">
+                <div class="queue-header">
+                    <h2>Approval Queue</h2>
+                    <div class="queue-tabs">
+                        <button class="queue-tab active" data-status="pending">Pending</button>
+                        <button class="queue-tab" data-status="held">Held</button>
+                        <button class="queue-tab" data-status="approved">Done</button>
+                    </div>
+                </div>
+                <div id="queue-list"></div>
+                <div id="queue-empty">
+                    <p>No pending items</p>
+                    <p style="opacity:0.5; font-size:0.8rem;">New leads, estimates, and calls will appear here for approval.</p>
+                </div>
+            </div>
+
+            <!-- Compose SMS Panel -->
+            <div id="compose-panel" class="hidden">
+                <h2>Send SMS</h2>
+                <div class="compose-form">
+                    <div class="compose-row">
+                        <label>To:</label>
+                        <input type="tel" id="compose-to" placeholder="Phone number">
+                    </div>
+                    <div class="compose-row">
+                        <label>From:</label>
+                        <select id="compose-from">
+                            <option value="+19042175152">Mechanic (+1 904-217-5152)</option>
+                            <option value="+19047066669">Mechanic 2 (+1 904-706-6669)</option>
+                            <option value="+19049258873">Sod (+1 904-925-8873)</option>
+                        </select>
+                    </div>
+                    <div class="compose-row">
+                        <textarea id="compose-msg" rows="4" placeholder="Type your message..."></textarea>
+                    </div>
+                    <div class="compose-actions">
+                        <button id="btn-compose-send" class="btn-green">Send SMS</button>
+                        <button id="btn-compose-cancel">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
             <div id="convo-header" class="hidden">
                 <strong id="convo-name"></strong>
                 <span id="convo-phone"></span>
@@ -119,7 +190,7 @@ $jsConfig = json_encode([
             </div>
 
             <!-- SMS Thread -->
-            <div id="sms-thread"></div>
+            <div id="sms-thread" class="hidden"></div>
 
             <!-- Message Input -->
             <div id="message-bar" class="hidden">
@@ -135,8 +206,9 @@ $jsConfig = json_encode([
             </div>
 
             <!-- Empty State -->
-            <div id="empty-state">
-                <p>No active conversation. Waiting for calls...</p>
+            <div id="empty-state" class="hidden">
+                <p>No active conversation.</p>
+                <p style="opacity:0.5; font-size:0.875rem;">Click "New SMS" or "New Call" to get started, or wait for incoming.</p>
             </div>
         </main>
     </div>
@@ -154,6 +226,6 @@ $jsConfig = json_encode([
     </audio>
 
     <script>window.DISPATCH_CONFIG = <?= $jsConfig ?>;</script>
-    <script src="/js/dispatch.js"></script>
+    <script src="/js/dispatch.js?v=<?= filemtime(__DIR__ . '/js/dispatch.js') ?>"></script>
 </body>
 </html>

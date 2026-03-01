@@ -21,6 +21,7 @@ return [
         'token' => 'PT1c8cf22d1446d4d9daaf580a26ad92729e48a4a33beb769a',
         'numbers' => [
             'mechanic' => '+19047066669',
+            'mechanic_ported' => '+19042175152',
             'sod' => '+19049258873',
         ],
         'forward_to' => '+19046634789',

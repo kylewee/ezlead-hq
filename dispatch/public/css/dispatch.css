@@ -496,7 +496,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.5rem 0; }
 
 /* Mobile responsive */
 @media (max-width: 768px) {
-    body { overflow-x: hidden; }
+    html, body { overflow: hidden; max-width: 100vw; width: 100vw; }
+    #main, #content, #queue-panel { overflow: hidden; width: 100%; }
 
     #sidebar {
         display: none;
@@ -525,9 +526,13 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.5rem 0; }
 
     #queue-list {
         padding: 0.5rem;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
         width: 100%;
-        overflow: hidden;
     }
+    #queue-list::-webkit-scrollbar { display: none; }
 
     .topbar-left h1 { font-size: 0.9rem; }
 

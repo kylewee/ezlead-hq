@@ -22,6 +22,7 @@ const state = {
     conversations: [],      // All conversations
     filter: 'all',          // Business filter
     reconnectTimer: null,
+    activeCall: null,       // Current outbound call state
     view: 'queue',          // Current view: queue, convo, compose
     queueStatus: 'pending', // Queue tab filter
     queueItems: [],         // Cached queue items
@@ -102,7 +103,12 @@ function handleWSMessage(msg) {
 
 function updateCallState(data) {
     console.log('[WS] Call state update:', data);
-    // Update sidebar conversation status if it matches
+
+    // Update active call display if this matches our call
+    if (state.activeCall && data.callId === state.activeCall.callId && data.status) {
+        state.activeCall.status = data.status;
+        updateActiveCallStatus(data.status);
+    }
 }
 
 // ============================================================
@@ -780,13 +786,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('compose-to').focus();
     });
 
-    // New Call button (placeholder - will use WebRTC later)
+    // New Call button - show call dialog
     document.getElementById('btn-new-call').addEventListener('click', () => {
-        const phone = prompt('Phone number to call:');
-        if (phone) {
-            console.log('[Call] Outbound to:', phone);
-            // TODO: Initiate outbound call via Cloudflare Calls
-        }
+        showCallDialog();
     });
 
     // Compose: Send SMS
@@ -844,6 +846,192 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// ============================================================
+// OUTBOUND CALLING
+// ============================================================
+function showCallDialog() {
+    // Remove existing dialog if any
+    const existing = document.getElementById('call-dialog');
+    if (existing) existing.remove();
+
+    const dialog = document.createElement('div');
+    dialog.id = 'call-dialog';
+    dialog.style.cssText = `
+        position:fixed; top:0; left:0; right:0; bottom:0;
+        background:rgba(0,0,0,0.6); display:flex; align-items:center;
+        justify-content:center; z-index:200;
+    `;
+    dialog.innerHTML = `
+        <div style="background:var(--surface); padding:1.5rem; border-radius:8px; width:340px;">
+            <h3 style="margin-bottom:1rem; font-size:1rem;">New Call</h3>
+            <div style="margin-bottom:0.75rem;">
+                <label style="font-size:0.8rem; color:var(--text-dim); display:block; margin-bottom:0.25rem;">Phone:</label>
+                <input type="tel" id="call-phone" placeholder="(904) 555-1234"
+                    style="width:100%; padding:0.5rem; background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:4px; font-size:1rem;">
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="font-size:0.8rem; color:var(--text-dim); display:block; margin-bottom:0.25rem;">From:</label>
+                <select id="call-from" style="width:100%; padding:0.5rem; background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:4px;">
+                    <option value="+19042175152">Mechanic (+1 904-217-5152)</option>
+                    <option value="+19047066669">Mechanic 2 (+1 904-706-6669)</option>
+                    <option value="+19049258873">Sod (+1 904-925-8873)</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:0.5rem;">
+                <button id="call-dial-btn" style="flex:1; padding:0.75rem; background:var(--green); color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.9rem; font-weight:600;">Dial</button>
+                <button id="call-cancel-btn" style="flex:1; padding:0.75rem; background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:4px; cursor:pointer; font-size:0.9rem;">Cancel</button>
+            </div>
+            <div id="call-dial-status" style="margin-top:0.75rem; font-size:0.8rem; text-align:center;"></div>
+        </div>
+    `;
+
+    document.body.appendChild(dialog);
+    document.getElementById('call-phone').focus();
+
+    // Pre-fill phone if active conversation
+    if (state.activeConvo?.phone) {
+        document.getElementById('call-phone').value = state.activeConvo.phone;
+    }
+
+    document.getElementById('call-cancel-btn').addEventListener('click', () => dialog.remove());
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.remove(); });
+
+    document.getElementById('call-phone').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('call-dial-btn').click();
+        if (e.key === 'Escape') dialog.remove();
+    });
+
+    document.getElementById('call-dial-btn').addEventListener('click', async () => {
+        const phone = document.getElementById('call-phone').value.trim();
+        const from = document.getElementById('call-from').value;
+        if (!phone) return;
+
+        const btn = document.getElementById('call-dial-btn');
+        const status = document.getElementById('call-dial-status');
+        btn.disabled = true;
+        btn.textContent = 'Dialing...';
+        status.textContent = '';
+
+        try {
+            const res = await fetch(CONFIG.callsProxyUrl + '?action=dial', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ to: phone, from }),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                state.activeCall = {
+                    callId: data.callId,
+                    room: data.room,
+                    to: phone,
+                    from,
+                    customerSid: data.customerSid,
+                    dispatcherSid: data.dispatcherSid,
+                    conversationId: data.conversationId,
+                    status: 'dialing',
+                };
+
+                dialog.remove();
+                showActiveCall(phone, 'dialing');
+
+                // Add to sidebar
+                addSidebarItem('calls-live', { phone, message: 'Outbound call', direction: 'outbound' });
+            } else {
+                status.style.color = 'var(--accent)';
+                status.textContent = data.error || 'Failed to place call';
+                btn.disabled = false;
+                btn.textContent = 'Dial';
+            }
+        } catch (err) {
+            status.style.color = 'var(--accent)';
+            status.textContent = 'Network error';
+            btn.disabled = false;
+            btn.textContent = 'Dial';
+        }
+    });
+}
+
+function showActiveCall(phone, status) {
+    showView('convo');
+    document.getElementById('convo-name').textContent = formatPhone(phone);
+    document.getElementById('convo-phone').textContent = '';
+    document.getElementById('convo-vehicle').textContent = '';
+
+    // Replace SMS thread with call status display
+    const thread = document.getElementById('sms-thread');
+    thread.innerHTML = `
+        <div id="active-call-display" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:1rem;">
+            <div style="font-size:2rem;">&#128222;</div>
+            <div style="font-size:1.1rem; font-weight:500;">${formatPhone(phone)}</div>
+            <div id="call-status-text" style="color:var(--text-dim);">${callStatusLabel(status)}</div>
+            <div id="call-timer" style="font-size:1.5rem; font-variant-numeric:tabular-nums; display:none;">0:00</div>
+            <button id="btn-end-call" style="margin-top:1rem; padding:0.75rem 2rem; background:var(--accent); color:white; border:none; border-radius:4px; cursor:pointer; font-size:1rem; font-weight:600;">End Call</button>
+        </div>
+    `;
+
+    document.getElementById('btn-end-call').addEventListener('click', endActiveCall);
+}
+
+function callStatusLabel(status) {
+    const labels = {
+        dialing: 'Dialing...',
+        queued: 'Queued...',
+        ringing: 'Ringing...',
+        connected: 'Connected',
+        ended: 'Call Ended',
+    };
+    return labels[status] || status;
+}
+
+let callTimerInterval = null;
+let callStartTime = null;
+
+function updateActiveCallStatus(status) {
+    const el = document.getElementById('call-status-text');
+    if (el) el.textContent = callStatusLabel(status);
+
+    if (status === 'connected' && !callTimerInterval) {
+        callStartTime = Date.now();
+        const timerEl = document.getElementById('call-timer');
+        if (timerEl) {
+            timerEl.style.display = '';
+            callTimerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+    }
+
+    if (status === 'ended') {
+        clearInterval(callTimerInterval);
+        callTimerInterval = null;
+        const btn = document.getElementById('btn-end-call');
+        if (btn) { btn.textContent = 'Done'; btn.onclick = () => showView('queue'); }
+    }
+}
+
+async function endActiveCall() {
+    if (!state.activeCall) return;
+
+    // Hang up both legs
+    const sids = [state.activeCall.customerSid, state.activeCall.dispatcherSid].filter(Boolean);
+    for (const sid of sids) {
+        try {
+            await fetch(CONFIG.callsProxyUrl + '?action=hangup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ callSid: sid }),
+            });
+        } catch (e) { /* best effort */ }
+    }
+
+    updateActiveCallStatus('ended');
+    state.activeCall = null;
+}
 
 // ============================================================
 // SIDEBAR HELPERS

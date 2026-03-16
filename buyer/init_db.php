@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS buyers (
     min_balance INTEGER DEFAULT 3500,  -- cents (auto-pause threshold, $35 minimum)
     price_per_lead INTEGER DEFAULT 3500, -- cents ($35 default per lead)
     free_leads_remaining INTEGER DEFAULT 3, -- 3 free test leads to start
+    zip_codes TEXT DEFAULT '',         -- comma-separated zip codes (empty = all)
+    is_admin INTEGER DEFAULT 0,       -- 1 = admin access
     status TEXT DEFAULT 'active',      -- active, paused, suspended
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))

@@ -30,6 +30,12 @@ if(!strlen($app_email_verification_code))
 
 switch($app_module_action)
 {
+    case 'back':
+        //reset verification code
+        $app_email_verification_code='';
+        app_session_unregister('app_logged_users_id');
+        redirect_to('users/login');
+        break;
     case 'resend';
         $alerts->add(TEXT_RESEND_CODE_TIP);
         redirect_to('users/login');

@@ -38,6 +38,7 @@ class fieldtype_image_ajax
             'jpg'=>'jpg',
             'jpeg'=>'jpeg',
             'png'=>'png',
+            'svg'=>'svg',
         ];
         $cfg[] = array('title' => TEXT_ALLOWED_EXTENSIONS, 'name' => 'allowed_extensions', 'type' => 'dropdown','choices'=>$choices, 'params' => array('class' => 'form-control chosen-select input-large','multiple'=>'multiple'));
         
@@ -100,7 +101,7 @@ class fieldtype_image_ajax
         $cfg = new fields_types_cfg($field['configuration']);
         
                 
-        $allowed_extensions = is_array($cfg->get('allowed_extensions')) ? $cfg->get('allowed_extensions') : ['gif','jpg','jpeg','png'];
+        $allowed_extensions = is_array($cfg->get('allowed_extensions')) ? $cfg->get('allowed_extensions') : ['gif','jpg','jpeg','png','svg'];
 
         $mime_types = fieldtype_attachments::get_mime_types();
         $allowed_mime_types = [];

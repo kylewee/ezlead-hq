@@ -32,11 +32,19 @@ class csrf_protect
     static function check()
     {
         global $app_session_token, $app_module_path;
-        
+
         if($app_module_path!='users/login')
         {
-            if(isset($_GET['action']) and !in_array($_GET['action'],['attachments_preview','download_attachment']) and app_session_is_registered('app_logged_users_id') and (!isset($_GET['token']) or urldecode($_GET['token'])!=$app_session_token))
+            $safe_actions = ['attachments_preview','download_attachment','update_favorites_header_dropdown','update_user_notifications_report','who_is_online','keep_session','set_last_user_action','check_inaction_users','get_events','get_resources'];
+
+            if(isset($_GET['action']) and !in_array($_GET['action'],$safe_actions) and app_session_is_registered('app_logged_users_id') and (!isset($_GET['token']) or urldecode($_GET['token'])!=$app_session_token))
             {
+                if(isset($_SERVER['HTTP_X_REQUESTED_WITH']) and $_SERVER['HTTP_X_REQUESTED_WITH']=='XMLHttpRequest')
+                {
+                    http_response_code(403);
+                    exit();
+                }
+
                 redirect_to('dashboard/token_error');
             }
         }

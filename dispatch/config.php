@@ -83,7 +83,8 @@ return [
             'drainagejax.com'         => 162,
             'sod.company'             => 163,
             'nearby.contractors'      => 164,
-            'mobilemechanic.best'     => 165,
+            'mechanicstaugustine.com'  => 165,
+            // mobilemechanic.best removed — now nationwide site, not local mechanic
         ],
     ],
 
@@ -97,7 +98,7 @@ return [
 
     // Dispatch auth
     'auth' => [
-        'password' => 'dispatch2026',
+        'password' => 'ez',
     ],
 
     // Video link settings

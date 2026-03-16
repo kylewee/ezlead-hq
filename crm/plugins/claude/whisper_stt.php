@@ -5,7 +5,8 @@
  */
 header('Content-Type: application/json');
 
-$OPENAI_KEY = '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';
+require_once __DIR__ . '/config.php';
+$OPENAI_KEY = OPENAI_API_KEY;
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['error' => 'POST required']);

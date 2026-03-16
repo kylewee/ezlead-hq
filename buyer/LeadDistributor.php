@@ -30,13 +30,14 @@ class LeadDistributor {
     public function distributeLead(array $leadData, string $siteDomain, int $crmLeadId): array {
         $results = [];
 
-        // Find eligible buyers
-        // - Status = active
-        // - Balance >= min_balance
-        // - Has campaign for this domain (or all domains)
-        // - Under daily/weekly cap
+        // Check for spam before distributing
+        if ($this->isSpam($leadData)) {
+            return [['status' => 'blocked', 'reason' => 'spam']];
+        }
 
-        $buyers = $this->findEligibleBuyers($siteDomain);
+        // Find eligible buyers (filters by domain, caps, balance, AND zip code)
+        $leadZip = $leadData['zip'] ?? '';
+        $buyers = $this->findEligibleBuyers($siteDomain, $leadZip);
 
         foreach ($buyers as $buyer) {
             $price = $buyer['price_per_lead'] ?? 2500; // cents
@@ -76,7 +77,7 @@ class LeadDistributor {
     /**
      * Find buyers eligible to receive a lead from this domain
      */
-    private function findEligibleBuyers(string $siteDomain): array {
+    private function findEligibleBuyers(string $siteDomain, string $leadZip = ''): array {
         // Get active buyers with sufficient balance
         $stmt = $this->db->prepare("
             SELECT b.*
@@ -90,6 +91,14 @@ class LeadDistributor {
         $buyers = [];
 
         while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+            // Check zip code filter — if buyer has zip codes set, lead must match
+            if (!empty($row['zip_codes']) && $leadZip) {
+                $buyerZips = array_map('trim', explode(',', $row['zip_codes']));
+                if (!in_array(trim($leadZip), $buyerZips)) {
+                    continue; // Skip — lead not in buyer's service area
+                }
+            }
+
             // Check if buyer has campaign for this domain
             $campaign = $this->getActiveCampaign($row['id'], $siteDomain);
 
@@ -448,5 +457,45 @@ class LeadDistributor {
      */
     public function resetWeeklyCounters(): void {
         $this->db->exec("UPDATE buyer_campaigns SET leads_this_week = 0, updated_at = datetime('now')");
+    }
+
+    /**
+     * Basic spam detection — block obvious junk before charging buyers
+     */
+    private function isSpam(array $leadData): bool {
+        $name = strtolower(trim(($leadData['first_name'] ?? '') . ' ' . ($leadData['last_name'] ?? '') . ' ' . ($leadData['name'] ?? '')));
+        $email = strtolower($leadData['email'] ?? '');
+        $phone = preg_replace('/[^0-9]/', '', $leadData['phone'] ?? '');
+        $notes = strtolower($leadData['notes'] ?? '');
+
+        // No name AND no phone = not a real lead
+        if (!$name && !$phone) return true;
+
+        // Fake/test names
+        $fakeNames = ['test', 'asdf', 'aaa', 'xxx', 'fghj', 'qwerty', 'sample', 'n/a'];
+        foreach ($fakeNames as $fake) {
+            if (trim($name) === $fake) return true;
+        }
+
+        // Phone must be 7+ digits if provided
+        if ($phone && strlen($phone) < 7) return true;
+
+        // Known spam email domains
+        $spamDomains = ['mailinator.com', 'guerrillamail.com', 'tempmail.com', 'throwaway.email', 'yopmail.com', 'sharklasers.com'];
+        foreach ($spamDomains as $domain) {
+            if (str_ends_with($email, '@' . $domain)) return true;
+        }
+
+        // Spam keywords in notes
+        $spamKeywords = ['viagra', 'casino', 'crypto', 'bitcoin', 'lottery', 'nigerian', 'click here', 'free money', 'SEO services'];
+        foreach ($spamKeywords as $keyword) {
+            if (str_contains($notes, strtolower($keyword))) return true;
+        }
+
+        // All-caps name longer than 3 chars is suspicious
+        $rawName = trim(($leadData['first_name'] ?? '') . ' ' . ($leadData['last_name'] ?? ''));
+        if (strlen($rawName) > 3 && $rawName === strtoupper($rawName) && preg_match('/[A-Z]/', $rawName)) return true;
+
+        return false;
     }
 }

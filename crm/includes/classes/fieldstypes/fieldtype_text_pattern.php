@@ -248,7 +248,7 @@ class fieldtype_text_pattern
                                 $output = '';
                             }
                         }
-                        elseif(in_array($field['type'], ['fieldtype_parent_item_id']))
+                        elseif(in_array($field['type'], ['fieldtype_parent_item_id', 'fieldtype_barcode']))
                         {
                             $output = $value;
                         }

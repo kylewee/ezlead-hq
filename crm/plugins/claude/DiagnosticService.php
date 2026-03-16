@@ -59,7 +59,7 @@ class DiagnosticService
         }
 
         // 2. Check if Mitchell1 is alive (reuse existing health check)
-        $statusFile = '/tmp/mitchell1_status.json';
+        $statusFile = '/var/lib/mitchell1/status.json';
         if (file_exists($statusFile)) {
             $status = json_decode(file_get_contents($statusFile), true);
             if (!($status['alive'] ?? true)) {

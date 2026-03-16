@@ -33,7 +33,7 @@ else
     }
 
     //check access
-    if(!$app_chat->has_access_by_group($chat_user['group_id']))
+    if(!$app_chat->has_access_by_group($chat_user['group_id'], $chat_user['multiple_access_groups']))
     {
             echo '<div class="alert alert-warning">' . TEXT_USER_IS_NOT_FOUD. '</div>';	
             exit();

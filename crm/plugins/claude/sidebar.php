@@ -55,6 +55,13 @@ function is_active($check_module, $check_path = '') {
         </a>
     </li>
 
+    <li class="<?= ($current_module === 'ext/ipages/view' && ($_GET['id'] ?? '') == '8') ? ' active' : '' ?>">
+        <a href="index.php?module=ext/ipages/view&id=8">
+            <i class="fa fa-road" style="color:#e74c3c"></i>
+            <span class="title">Pipeline</span>
+        </a>
+    </li>
+
     <li class="<?= is_active('items/items', '42') . is_active('items/item', '42') ?>">
         <a href="index.php?module=items/items&path=42">
             <i class="fa fa-wrench"></i>
@@ -108,6 +115,8 @@ function is_active($check_module, $check_path = '') {
             <!-- VIEWS -->
             <li style="padding:5px 15px;"><small style="color:#888;text-transform:uppercase;font-weight:700;letter-spacing:1px;">Views</small></li>
             <li><a href="index.php?module=ext/ipages/view&id=6"><i class="fa fa-tree"></i> Mission Control</a></li>
+            <li><a href="index.php?module=ext/ipages/view&id=3"><i class="fa fa-globe"></i> Websites Dashboard</a></li>
+            <li><a href="index.php?module=ext/ipages/view&id=5"><i class="fa fa-line-chart"></i> Analytics Dashboard</a></li>
             <li><a href="index.php?module=ext/kanban/view&id=4"><i class="fa fa-columns"></i> Jobs Kanban</a></li>
             <li><a href="index.php?module=items/items&path=49"><i class="fa fa-stethoscope"></i> Diagnostics</a></li>
             <li><a href="index.php?module=items/items&path=48"><i class="fa fa-truck"></i> Vehicles</a></li>
@@ -116,7 +125,6 @@ function is_active($check_module, $check_path = '') {
             <!-- TOOLS -->
             <li style="padding:5px 15px;"><small style="color:#888;text-transform:uppercase;font-weight:700;letter-spacing:1px;">Tools</small></li>
             <li><a href="index.php?module=ext/ipages/view&id=1"><i class="fa fa-comments"></i> AI Chat</a></li>
-            <li><a href="https://social.ezlead4u.com" target="_blank"><i class="fa fa-share-alt"></i> Social Media</a></li>
             <li><a href="https://mechanicstaugustine.com/video/" target="_blank"><i class="fa fa-video-camera"></i> Video Chat</a></li>
             <li><a href="index.php?module=items/items&path=44"><i class="fa fa-line-chart"></i> Analytics</a></li>
 
@@ -124,20 +132,20 @@ function is_active($check_module, $check_path = '') {
             <li style="padding:5px 15px;"><small style="color:#888;text-transform:uppercase;font-weight:700;letter-spacing:1px;">Websites</small></li>
             <li><a href="index.php?module=items/items&path=37"><i class="fa fa-globe"></i> Sites</a></li>
             <li><a href="https://mechanicstaugustine.com" target="_blank"><i class="fa fa-wrench"></i> mechanicstaugustine.com</a></li>
-            <li><a href="https://mobilemechanic.best" target="_blank"><i class="fa fa-wrench"></i> mobilemechanic.best</a></li>
+            <li><a href="https://mobilemechanic.best" target="_blank"><i class="fa fa-wrench"></i> mobilemechanic.best (nationwide)</a></li>
             <li><a href="https://sodjax.com" target="_blank"><i class="fa fa-leaf"></i> sodjax.com</a></li>
             <li><a href="https://sodjacksonville.com" target="_blank"><i class="fa fa-leaf"></i> sodjacksonville.com</a></li>
+            <li><a href="https://sodjacksonvillefl.com" target="_blank"><i class="fa fa-leaf"></i> sodjacksonvillefl.com</a></li>
             <li><a href="https://sod.company" target="_blank"><i class="fa fa-leaf"></i> sod.company</a></li>
             <li><a href="https://drainagejax.com" target="_blank"><i class="fa fa-tint"></i> drainagejax.com</a></li>
             <li><a href="https://nearby.contractors" target="_blank"><i class="fa fa-map-marker"></i> nearby.contractors</a></li>
+            <li><a href="https://kyle.weerts.us" target="_blank"><i class="fa fa-user"></i> kyle.weerts.us</a></li>
 
             <!-- BUSINESS -->
             <li style="padding:5px 15px;"><small style="color:#888;text-transform:uppercase;font-weight:700;letter-spacing:1px;">Business</small></li>
             <li><a href="index.php?module=items/items&path=50"><i class="fa fa-building"></i> Businesses</a></li>
             <li><a href="index.php?module=items/items&path=26"><i class="fa fa-shopping-cart"></i> Buyers</a></li>
             <li><a href="index.php?module=items/items&path=27"><i class="fa fa-credit-card"></i> Transactions</a></li>
-            <li><a href="index.php?module=items/items&path=38"><i class="fa fa-file-text"></i> Documents</a></li>
-            <li><a href="index.php?module=items/items&path=39"><i class="fa fa-camera"></i> Photos</a></li>
 
             <!-- AI & NOTES -->
             <li style="padding:5px 15px;"><small style="color:#888;text-transform:uppercase;font-weight:700;letter-spacing:1px;">AI & Notes</small></li>
@@ -159,6 +167,101 @@ function is_active($check_module, $check_path = '') {
 </ul>
 
 <script src="<?= dirname($_SERVER['SCRIPT_NAME']) ?>/plugins/claude/quick_edit.js"></script>
+<?php
+// Quick actions config per entity
+$qa_entity_id = 0;
+if (isset($_GET['path']) && preg_match('/^(\d+)$/', $_GET['path'], $m)) {
+    $qa_entity_id = (int)$m[1];
+}
+$qa_actions = [];
+switch ($qa_entity_id) {
+    case 42:
+        $qa_actions[] = ['label' => 'Mark as Paid', 'icon' => 'fa-usd', 'field' => 371, 'value' => 93];
+        $qa_actions[] = ['label' => 'Mark Complete', 'icon' => 'fa-check-circle', 'field' => 362, 'value' => 89];
+        break;
+    case 30:
+        $qa_actions[] = ['label' => 'Archive Selected', 'icon' => 'fa-archive', 'field' => 292, 'value' => 142];
+        break;
+    case 36:
+        $qa_actions[] = ['label' => 'Mark Done', 'icon' => 'fa-check', 'field' => 330, 'value' => 181];
+        break;
+    case 25:
+        $qa_actions[] = ['label' => 'Mark Won', 'icon' => 'fa-trophy', 'field' => 268, 'value' => 78];
+        $qa_actions[] = ['label' => 'Mark Lost', 'icon' => 'fa-times', 'field' => 268, 'value' => 79];
+        break;
+}
+
+// Quick Estimate button on Estimates listing (entity 53)
+if ($qa_entity_id == 53): ?>
+<script>
+$(function(){
+    var tries = 0;
+    var inj = setInterval(function(){
+        var $bar = $('.entitly-listing-buttons-left').first();
+        if ($bar.length && !$bar.data('qe-btn')) {
+            $bar.data('qe-btn', true);
+            $bar.prepend('<a href="index.php?module=ext/ipages/view&id=7" class="btn btn-primary btn-sm" style="margin-right:8px;"><i class="fa fa-calculator"></i> Quick Estimate</a>');
+            clearInterval(inj);
+        }
+        if (++tries > 30) clearInterval(inj);
+    }, 500);
+});
+</script>
+<?php endif;
+if (!empty($qa_actions)):
+?>
+<script>
+var claudeQuickActions = <?= json_encode($qa_actions) ?>;
+var claudeEntityId = <?= $qa_entity_id ?>;
+var claudePath = '<?= htmlspecialchars($_GET['path'] ?? '') ?>';
+
+$(function(){
+    // Wait for listing to load, then modify the dropdown
+    var tries = 0;
+    var injectInterval = setInterval(function(){
+        var $dropdown = $('.entitly-listing-buttons-left .dropdown-menu').first();
+        if ($dropdown.length && !$dropdown.data('claude-injected')) {
+            $dropdown.data('claude-injected', true);
+
+            // Remove Copy, Link, Move
+            $dropdown.find('li a').each(function(){
+                var t = $(this).text().trim();
+                if (t === 'Copy' || t === 'Link' || t === 'Move') {
+                    $(this).parent('li').remove();
+                }
+            });
+
+            // Get reports_id from an existing dropdown link
+            var reportsId = '';
+            $dropdown.find('li a').each(function(){
+                var href = $(this).attr('href') || '';
+                var m = href.match(/reports_id=(\d+)/);
+                if (m) { reportsId = m[1]; return false; }
+            });
+
+            // Add divider + quick actions
+            $dropdown.append('<li class="divider"></li>');
+            claudeQuickActions.forEach(function(qa){
+                var url = 'index.php?module=claude/with_selected/quick_action' +
+                    '&path=' + claudePath +
+                    '&entity_id=' + claudeEntityId +
+                    '&field_id=' + qa.field +
+                    '&value=' + qa.value +
+                    '&label=' + encodeURIComponent(qa.label) +
+                    '&reports_id=' + reportsId;
+                $dropdown.append(
+                    '<li><a href="' + url + '" onClick="open_dialog(this.href); return false;">' +
+                    '<i class="fa ' + qa.icon + '"></i> ' + qa.label + '</a></li>'
+                );
+            });
+
+            clearInterval(injectInterval);
+        }
+        if (++tries > 30) clearInterval(injectInterval);
+    }, 500);
+});
+</script>
+<?php endif; ?>
 <script>
 function switchBiz(bizId) {
     document.cookie = 'crm_biz=' + bizId + ';path=/crm/;max-age=31536000';

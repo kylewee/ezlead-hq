@@ -114,17 +114,68 @@ Pending triggers M1 auto-lookup (Block 7), Complete triggers estimate+PDF+email 
 
 ## Plugin Files
 
+### Core
 | File | Purpose |
 |------|---------|
 | `mechanic_automation.php` | 11-stage workflow automation (5-min cron) |
 | `DiagnosticService.php` | Mitchell1 auto-lookup for diagnostics |
 | `sidebar.php` | CRM sidebar override (6 sections in More dropdown) |
-| `ajax_chat.php` | Chat AJAX endpoint |
-| `ajax_action.php` | Quick actions (mark_done, advance_stage) |
 | `dashboard.php` | Dashboard override |
+| `config.php` | Centralized credentials (SignalWire, OpenAI, Anthropic) |
 | `MECHANIC-WORKFLOW-GUIDE.md` | Plain-English workflow guide |
-| `mission_control_data.php` | Mission Control tree JSON endpoint |
-| `mission_control.js` | Mission Control frontend (loaded by iPage 6) |
+
+### Mission Control
+| File | Purpose |
+|------|---------|
+| `mc3.js` | Mission Control frontend (loaded by iPage 6) |
+| `mc_data.php` | Mission Control tree JSON endpoint |
+| `mc_health.php` | Health probe module |
+| `mc_page.php` | Mission Control page loader |
+
+### AJAX Endpoints
+| File | Purpose |
+|------|---------|
+| `ajax_chat.php` | AI Chat backend |
+| `ajax_estimate.php` | Quick Estimate backend |
+| `ajax_lead_triage.php` | Lead triage backend (no frontend yet) |
+| `ajax_quick_edit.php` | Inline record editing backend |
+| `includes/ajax_action.php` | Quick actions (mark_done, advance_stage) |
+
+### Frontend
+| File | Purpose |
+|------|---------|
+| `quick_edit.js` | Inline record editing frontend |
+| `tracker.js` | Website analytics tracking (client-side) |
+
+### Dashboards & Data
+| File | Purpose |
+|------|---------|
+| `websites_dashboard.php` | Websites dashboard JSON endpoint (iPage 3) |
+| `analytics_briefing.php` | Analytics dashboard (iPage 5) |
+| `track.php` | Website analytics tracking (server-side receiver) |
+
+### Cron / Background
+| File | Purpose |
+|------|---------|
+| `uptime_monitor.php` | Website uptime checker (5-min cron) |
+| `archive_sessions.php` | Session auto-archiver |
+
+### Utilities
+| File | Purpose |
+|------|---------|
+| `whisper_stt.php` | Voice-to-text via OpenAI Whisper |
+| `command_bridge.php` | Sandboxed command execution for AI Chat |
+
+### Integrations
+| File | Purpose |
+|------|---------|
+| `zoho_api.php` | Zoho Books API integration (not yet active) |
+| `zoho_callback.php` | Zoho Books OAuth callback (not yet active) |
+
+### Modules
+| Directory | Purpose |
+|-----------|---------|
+| `modules/with_selected/` | Bulk quick actions for record lists |
 
 ## CRM URLs
 

@@ -59,10 +59,10 @@ switch ($action) {
         $title = $conn->real_escape_string($_POST['title'] ?? 'New Session');
         $now = time();
         // field_293, field_294 are bigint (unix timestamps)
-        // field_292 (status) is int (dropdown option id, 1=Active)
-        $sql = "INSERT INTO app_entity_" . SESSIONS_ENTITY . " 
-                (field_290, field_291, field_292, field_293, field_294, field_295, field_296, date_added, created_by) 
-                VALUES ('$title', $project_id, 1, $now, $now, '', '', $now, 1)";
+        // field_292 (status) is dropdown (141=Active, 142=Archived)
+        $sql = "INSERT INTO app_entity_" . SESSIONS_ENTITY . "
+                (field_290, field_291, field_292, field_293, field_294, field_295, field_296, date_added, created_by)
+                VALUES ('$title', $project_id, 141, $now, $now, '', '', $now, 1)";
         $conn->query($sql);
         echo json_encode(['success' => true, 'session_id' => $conn->insert_id]);
         break;
@@ -133,10 +133,67 @@ switch ($action) {
     case 'save_action':
         $session_id = intval($_POST['session_id'] ?? 0);
         $text = $conn->real_escape_string($_POST['text'] ?? '');
-        $priority = $conn->real_escape_string($_POST['priority'] ?? 'Medium');
+        $priorityRaw = $_POST['priority'] ?? 'Medium';
+        // Map priority names to dropdown choice IDs (178=High, 179=Medium, 180=Low)
+        $priorityMap = ['High' => 178, 'Medium' => 179, 'Low' => 180];
+        $priority = $priorityMap[$priorityRaw] ?? 179;
         $now = time();
-        $conn->query("INSERT INTO app_entity_" . ACTIONS_ENTITY . " (field_328, field_329, field_330, field_332, parent_item_id, date_added, created_by) VALUES ('$text', '$priority', '', 0, $session_id, $now, 1)");
+        $conn->query("INSERT INTO app_entity_" . ACTIONS_ENTITY . " (field_328, field_329, field_330, field_332, parent_item_id, date_added, created_by) VALUES ('$text', $priority, 0, 0, $session_id, $now, 1)");
         echo json_encode(['success' => true, 'action_id' => $conn->insert_id]);
+        break;
+
+    case 'ollama_chat':
+        $messages = json_decode($_POST['messages'] ?? '[]', true);
+        if (empty($messages)) {
+            echo json_encode(['error' => 'No messages']);
+            break;
+        }
+
+        // Convert to Ollama format (same as OpenAI format)
+        $ollamaMessages = [];
+        foreach ($messages as $m) {
+            $content = $m['content'];
+            if (is_array($content)) {
+                // Extract text from multi-modal content
+                $text = '';
+                foreach ($content as $block) {
+                    if (isset($block['type']) && $block['type'] === 'text') {
+                        $text .= $block['text'] . "\n";
+                    }
+                }
+                $content = trim($text);
+            }
+            $ollamaMessages[] = ['role' => $m['role'], 'content' => $content];
+        }
+
+        $payload = json_encode([
+            'model' => 'mistral',
+            'messages' => $ollamaMessages,
+            'stream' => false,
+        ]);
+
+        $ch = curl_init('http://localhost:11434/api/chat');
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 120,
+        ]);
+        $resp = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = curl_error($ch);
+        curl_close($ch);
+
+        if ($err) {
+            echo json_encode(['error' => 'Ollama connection failed: ' . $err]);
+        } elseif ($httpCode !== 200) {
+            echo json_encode(['error' => 'Ollama error (HTTP ' . $httpCode . ')']);
+        } else {
+            $data = json_decode($resp, true);
+            $reply = $data['message']['content'] ?? '';
+            echo json_encode(['content' => $reply]);
+        }
         break;
 
     default:

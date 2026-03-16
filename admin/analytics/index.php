@@ -50,10 +50,68 @@ if (!$authenticated) {
 // Get data
 $ab = new ABTesting();
 $callTracker = new CallTracking();
+$analytics = new Analytics();
 
 $experiments = $ab->getAllExperiments();
 $callStats = $callTracker->getABCallStats();
 $recentCalls = $callTracker->getRecentCalls(10);
+
+// Landing page analytics from SQLite
+$analyticsDb = new SQLite3(__DIR__ . '/../../data/analytics.db');
+$analyticsDb->busyTimeout(5000);
+
+// Top landing pages by pageviews
+$lpQuery = $analyticsDb->query("
+    SELECT page_url, page_title, COUNT(*) as views,
+           AVG(time_on_page) as avg_time, AVG(scroll_depth) as avg_scroll
+    FROM pageviews
+    WHERE page_url LIKE '%/services/%'
+    GROUP BY page_url
+    ORDER BY views DESC
+    LIMIT 30
+");
+$landingPages = [];
+while ($lpQuery && $row = $lpQuery->fetchArray(SQLITE3_ASSOC)) {
+    $landingPages[] = $row;
+}
+
+// Conversions by landing page
+$convQuery = $analyticsDb->query("
+    SELECT landing_page, COUNT(*) as conversions, conversion_type
+    FROM conversions
+    WHERE landing_page LIKE '%/services/%'
+    GROUP BY landing_page
+");
+$convByPage = [];
+while ($convQuery && $row = $convQuery->fetchArray(SQLITE3_ASSOC)) {
+    $slug = basename($row['landing_page'] ?? '');
+    $convByPage[$slug] = ($convByPage[$slug] ?? 0) + $row['conversions'];
+}
+
+// Total analytics stats
+$totalPageviews = $analyticsDb->querySingle("SELECT COUNT(*) FROM pageviews") ?: 0;
+$totalVisitors = $analyticsDb->querySingle("SELECT COUNT(*) FROM visitors") ?: 0;
+$todayViews = $analyticsDb->querySingle("SELECT COUNT(*) FROM pageviews WHERE date(created_at) = date('now')") ?: 0;
+$totalConversions = $analyticsDb->querySingle("SELECT COUNT(*) FROM conversions") ?: 0;
+$servicePageviews = $analyticsDb->querySingle("SELECT COUNT(*) FROM pageviews WHERE page_url LIKE '%/services/%'") ?: 0;
+
+// Traffic with zero conversions (opportunities)
+$zeroConvQuery = $analyticsDb->query("
+    SELECT p.page_url, p.page_title, COUNT(*) as views
+    FROM pageviews p
+    WHERE p.page_url LIKE '%/services/%'
+    AND NOT EXISTS (
+        SELECT 1 FROM conversions c WHERE c.landing_page = p.page_url
+    )
+    GROUP BY p.page_url
+    HAVING views >= 3
+    ORDER BY views DESC
+    LIMIT 10
+");
+$zeroConvPages = [];
+while ($zeroConvQuery && $row = $zeroConvQuery->fetchArray(SQLITE3_ASSOC)) {
+    $zeroConvPages[] = $row;
+}
 
 // Calculate combined metrics
 $combinedStats = [];
@@ -304,20 +362,24 @@ foreach ($experiments as $exp) {
         <!-- Summary Stats -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="number"><?php echo count($experiments); ?></div>
-                <div class="label">Active Experiments</div>
+                <div class="number"><?= number_format($totalPageviews) ?></div>
+                <div class="label">Total Pageviews</div>
             </div>
             <div class="stat-card">
-                <div class="number"><?php
-                    $totalViews = 0;
-                    foreach ($combinedStats as $cs) {
-                        foreach ($cs['ab_stats']['variants'] ?? [] as $v) {
-                            $totalViews += $v['views'];
-                        }
-                    }
-                    echo number_format($totalViews);
-                ?></div>
-                <div class="label">Total Page Views</div>
+                <div class="number"><?= number_format($totalVisitors) ?></div>
+                <div class="label">Unique Visitors</div>
+            </div>
+            <div class="stat-card">
+                <div class="number"><?= number_format($todayViews) ?></div>
+                <div class="label">Today's Views</div>
+            </div>
+            <div class="stat-card">
+                <div class="number"><?= number_format($servicePageviews) ?></div>
+                <div class="label">Service Page Views</div>
+            </div>
+            <div class="stat-card">
+                <div class="number"><?= number_format($totalConversions) ?></div>
+                <div class="label">Conversions</div>
             </div>
             <div class="stat-card">
                 <div class="number"><?php
@@ -329,19 +391,87 @@ foreach ($experiments as $exp) {
                 ?></div>
                 <div class="label">Tracked Calls</div>
             </div>
-            <div class="stat-card">
-                <div class="number"><?php
-                    $attributedCalls = 0;
-                    foreach ($callStats as $cs) {
-                        if ($cs['ab_experiment']) {
-                            $attributedCalls += $cs['total_calls'];
-                        }
-                    }
-                    echo number_format($attributedCalls);
-                ?></div>
-                <div class="label">A/B Attributed Calls</div>
+        </div>
+
+        <!-- Landing Pages Performance -->
+        <div class="section">
+            <div class="section-header">
+                <span>Landing Pages — Top by Traffic</span>
+                <span class="badge badge-info"><?= count($landingPages) ?> pages with data</span>
+            </div>
+            <div class="section-body">
+                <?php if (empty($landingPages)): ?>
+                <p style="text-align: center; color: #64748b; padding: 2rem;">No landing page data yet. Views will appear as traffic comes in.</p>
+                <?php else: ?>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Page</th>
+                            <th>Views</th>
+                            <th>Conversions</th>
+                            <th>Conv. Rate</th>
+                            <th>Avg Time</th>
+                            <th>Avg Scroll</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($landingPages as $lp):
+                            $slug = basename(parse_url($lp['page_url'], PHP_URL_PATH));
+                            $convs = $convByPage[$slug] ?? 0;
+                            $convRate = $lp['views'] > 0 ? ($convs / $lp['views']) * 100 : 0;
+                            $avgTime = round($lp['avg_time'] ?? 0);
+                            $avgScroll = round($lp['avg_scroll'] ?? 0);
+                        ?>
+                        <tr>
+                            <td>
+                                <a href="/services/<?= htmlspecialchars($slug) ?>" style="color: var(--primary); text-decoration: none;" target="_blank">
+                                    <?= htmlspecialchars($lp['page_title'] ?: $slug) ?>
+                                </a>
+                            </td>
+                            <td><?= number_format($lp['views']) ?></td>
+                            <td><?= $convs > 0 ? '<span class="badge badge-success">' . $convs . '</span>' : '0' ?></td>
+                            <td><?= $convRate > 0 ? number_format($convRate, 1) . '%' : '—' ?></td>
+                            <td><?= $avgTime > 0 ? gmdate('i:s', $avgTime) : '—' ?></td>
+                            <td><?= $avgScroll > 0 ? $avgScroll . '%' : '—' ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <?php endif; ?>
             </div>
         </div>
+
+        <?php if (!empty($zeroConvPages)): ?>
+        <!-- Pages with Traffic but No Conversions -->
+        <div class="section">
+            <div class="section-header">
+                <span>Optimization Opportunities — Traffic but No Conversions</span>
+                <span class="badge badge-warning">Needs attention</span>
+            </div>
+            <div class="section-body">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Page</th>
+                            <th>Views</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($zeroConvPages as $zp):
+                            $slug = basename(parse_url($zp['page_url'], PHP_URL_PATH));
+                        ?>
+                        <tr>
+                            <td><a href="/services/<?= htmlspecialchars($slug) ?>" style="color: var(--primary); text-decoration: none;" target="_blank"><?= htmlspecialchars($zp['page_title'] ?: $slug) ?></a></td>
+                            <td><?= number_format($zp['views']) ?></td>
+                            <td style="font-size: 0.85rem; color: #64748b;">Review CTA, hook, or content</td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- A/B Experiments with Call Data -->
         <?php foreach ($combinedStats as $expName => $data): ?>

@@ -122,7 +122,20 @@ class fieldtype_entity_ajax
                     'params' => array('class' => 'form-control chosen-select input-xlarge', 'multiple' => 'multiple'));
 
 
-                $cfg[] = array('title' => TEXT_HEADING_TEMPLATE . fields::get_available_fields_helper($entities_id, 'fields_configuration_heading_template'), 'name' => 'heading_template', 'type' => 'textarea', 'tooltip_icon' => TEXT_HEADING_TEMPLATE_INFO, 'tooltip' => TEXT_ENTER_TEXT_PATTERN_INFO, 'params' => array('class' => 'form-control input-xlarge'));
+                $cfg[] = array(
+                    'title' => TEXT_HEADING_TEMPLATE . ' (' . TEXT_FIELDTYPE_DROPDOWN_TITLE . ')' . fields::get_available_fields_helper($entities_id, 'fields_configuration_heading_template'), 
+                    'name' => 'heading_template', 
+                    'type' => 'textarea', 
+                    'tooltip_icon' => TEXT_HEADING_TEMPLATE_INFO, 
+                    'tooltip' => TEXT_ENTER_TEXT_PATTERN_INFO, 
+                    'params' => array('class' => 'form-control input-xlarge'));
+                
+                $cfg[] = array(
+                    'title' => TEXT_HEADING_TEMPLATE . ' (' . TEXT_FIELDTYPE_INPUT_TITLE . ')' . fields::get_available_fields_helper($entities_id, 'fields_configuration_heading_template_input'), 
+                    'name' => 'heading_template_input', 
+                    'type' => 'input', 
+                    'tooltip_icon' => TEXT_HEADING_TEMPLATE_INFO,                     
+                    'params' => array('class' => 'form-control input-xlarge'));
 
                 $cfg[] = array(
                     'title' => TEXT_COPY_VALUES .
@@ -175,19 +188,19 @@ class fieldtype_entity_ajax
 
         if (strlen($value))
         {
-            $listing_sql = "select  e.* from app_entity_" . $cfg->get('entity_id') . " e  where id in (" . db_input_in($value) . ")";
+            $listing_sql = "select  e.* from app_entity_" . $cfg->get('entity_id') . " e  where id in (" . db_input_in($value) . ") order by field(e.id, " . db_input_in($value) . ")";
 
             $items_query = db_query($listing_sql, false);
             while ($item = db_fetch_array($items_query))
             {
-                $heading = self::render_heading_template($item, $entity_info, $field_entity_info, $cfg, false);
-                $choices[$item['id']] = $heading['text'];
+                $heading = self::render_heading_template($item, $entity_info, $field_entity_info, $cfg, true);
+                $choices[$item['id']] = strip_tags($heading['text']);
             }
 
             if (isset($params['is_new_item']) and $params['is_new_item'] == 1 and is_numeric($value))
             {
                 $html_on_change .= '$("#fields_' . $field['id'] . '_select2_on").load("' . url_for('dashboard/select2_json', 'action=copy_values&form_type=items/render_field_value&entity_id=' . $cfg->get('entity_id') . '&field_id=' . $field['id']) . '",{item_id:' . $value . '})' . "\n";
-            }
+            }                        
         }
 
         //prepare button add
@@ -300,7 +313,9 @@ class fieldtype_entity_ajax
     			$("#fields_' . $field['id'] . '").on("select2:open", function (e) {                            
                             $(".select2-search__field").scannerDetection({                    
                                 onComplete: function(barcode, qty){ 
-                                    $(this).addClass("scanner-detected")                                                                        
+                                    $(this).addClass("scanner-detected");
+                                    $("#fields_' . $field['id'] . '").val("").trigger("change");
+                                    $("#fields_' . $field['id'] . '").select2(\'open\');
                                 },
                                 onError: function(){
                                    $(this).removeClass("scanner-detected")                                   
@@ -511,19 +526,20 @@ class fieldtype_entity_ajax
 
     static function render_heading_template($item, $entity_info, $field_entity_info, $cfg, $get_html = true)
     {
-        global $app_users_cache;
+        global $app_users_cache, $app_module_path;
 
         $html = '';
         $text = '';
+        $html_text = '';
 
         $field_heading_id = fields::get_heading_id($entity_info['id']);
-
+        
+        
         if (strlen($heading_template = $cfg->get('heading_template')) and $get_html)
-        {
+        {            
             $fieldtype_text_pattern = new fieldtype_text_pattern();
-            $html = $fieldtype_text_pattern->output_singe_text($heading_template, $entity_info['id'], $item);
-        }
-
+            $html_text = $html = $fieldtype_text_pattern->output_singe_text($heading_template, $entity_info['id'], $item);                        
+        }                
 
         if ($cfg->get('entity_id') == 1)
         {
@@ -550,8 +566,14 @@ class fieldtype_entity_ajax
         {
             $text = $item['id'];
         }
+        
+        if (strlen($heading_template = $cfg->get('heading_template_input')))
+        {                      
+            $fieldtype_text_pattern = new fieldtype_text_pattern();
+            $html_text = $fieldtype_text_pattern->output_singe_text($heading_template, $entity_info['id'], $item);                         
+        }
 
-        return ['text' => $text, 'html' => '<div>' . (strlen($html) ? $html : $text) . '</div>'];
+        return ['text' => (strlen($html_text) ? strip_tags($html_text) : $text), 'html' => '<div>' . (strlen($html) ? $html : $text) . '</div>'];
     }
 
     static function mysql_query_where($cfg, $field, $parent_entity_item_id)

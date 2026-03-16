@@ -230,7 +230,7 @@ class sms
 
             if(count($send_to))
             {
-                $this->send($send_to, $text);
+                $this->send($send_to, $text, $rules);
             }
         }
     }
@@ -312,12 +312,12 @@ class sms
 
             if(count($send_to))
             {
-                $this->send($send_to, $text);
+                $this->send($send_to, $text, $rules);
             }
         }
     }
 
-    function send($send_to, $text)
+    function send($send_to, $text, $rules)
     {
         if($this->is_debug)
         {
@@ -332,7 +332,7 @@ class sms
         {
 
             $module = new $this->module;
-            $module->send($this->module_id, $send_to, $text);
+            $module->send($this->module_id, $send_to, $text, $rules, $this->item_info);
         }
     }
 
@@ -469,7 +469,7 @@ class sms
 
             if(count($send_to))
             {
-                $this->send($send_to, $text);
+                $this->send($send_to, $text, $rules);
             }
         }
     }  

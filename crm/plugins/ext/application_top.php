@@ -11,8 +11,8 @@
  * https://fips.ru/EGD/3b18c104-1db7-4f2d-83fb-2d38e1474ca3
  */
  
-define('PLUGIN_EXT_VERSION','3.6.3');
-define('PLUGIN_EXT_REQUIRED_RUKOVODITEL_VERSION','3.6.3');
+define('PLUGIN_EXT_VERSION','3.6.4');
+define('PLUGIN_EXT_REQUIRED_RUKOVODITEL_VERSION','3.6.4');
 
 //check required Rukovoditel version
 if(PROJECT_VERSION!=PLUGIN_EXT_REQUIRED_RUKOVODITEL_VERSION and !in_array($app_module_path,array('tools/check_version')) )

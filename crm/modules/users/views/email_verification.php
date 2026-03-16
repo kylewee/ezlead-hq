@@ -30,7 +30,7 @@
     
     <div class="form-actions">
     	
-    	<button type="button" id="back-btn" class="btn btn-default" onClick="location.href='<?php echo url_for('users/login')?>'"><i class="fa fa-arrow-circle-left"></i> <?php echo TEXT_BUTTON_BACK ?></button>
+    	<button type="button" id="back-btn" class="btn btn-default" onClick="location.href='<?php echo url_for('users/email_verification','action=back')?>'"><i class="fa fa-arrow-circle-left"></i> <?php echo TEXT_BUTTON_BACK ?></button>
     	
     	<button type="submit" class="btn btn-info pull-right"><?php echo TEXT_CONTINUE ?></button>
     </div>

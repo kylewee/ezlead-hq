@@ -119,7 +119,11 @@ class export_templates_file
 
         if($report['page_orientation']=='landscape')
         {
-          $dompdf->set_paper('letter', 'landscape');
+            $dompdf->set_paper('A4', 'landscape');
+        }
+        else
+        {
+            $dompdf->set_paper("A4", "portrait");
         }
         
         //echo $html;
@@ -277,10 +281,14 @@ class export_templates_file
         $html = preg_replace('/[\x{3130}-\x{318F}\x{AC00}-\x{D7AF}]/u', '<c>${0}</c>',$html);
                               
         $dompdf = new Dompdf\Dompdf(); 
-
+      
         if($template_info['page_orientation']=='landscape')
         {
-          $dompdf->set_paper('letter', 'landscape');
+            $dompdf->set_paper('A4', 'landscape');
+        }
+        else
+        {
+            $dompdf->set_paper("A4", "portrait");
         }
         
         //echo $html;

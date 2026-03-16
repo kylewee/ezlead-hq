@@ -937,7 +937,7 @@ class fields
                   $field_value = fields_choices::render_value($field_value, true);
                 }
                 break;
-            case 'fieldtype_users_ajax';
+            case 'fieldtype_users_ajax':
             case 'fieldtype_users':                
                 if(is_array($field_value) and count($field_value))
                 {

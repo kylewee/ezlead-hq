@@ -481,7 +481,7 @@ class entities_menu
                 case strstr($reports_type, 'kanban'):
                     if($app_user['group_id'] > 0)
                     {
-                        $reports_query = db_query("select c.id, c.name from app_ext_kanban c, app_entities e where c.id='" . $reports_id . "' and e.id=c.entities_id and find_in_set(" . $app_user['group_id'] . ",c.users_groups) order by c.name");
+                        $reports_query = db_query("select c.id, c.name from app_ext_kanban c, app_entities e where c.id='" . $reports_id . "' and e.id=c.entities_id and (find_in_set(" . $app_user['group_id'] . ",c.users_groups) or find_in_set(" . $app_user['id'] . ",assigned_to)) order by c.name");
                     }
                     else
                     {

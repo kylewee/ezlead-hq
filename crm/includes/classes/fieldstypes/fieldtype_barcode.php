@@ -164,7 +164,9 @@ class fieldtype_barcode
             $script = '
                 <script>
                     $("#fields_' . $field['id'] . '").scannerDetection({                    
-                        onComplete: function(barcode, qty){  },                    
+                        onComplete: function(barcode, qty){                              
+                            $(this).trigger("scannerDetection") 
+                        },                    
                     });
                 </script>
                 ';

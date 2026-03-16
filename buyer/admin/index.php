@@ -19,11 +19,17 @@
 
 session_start();
 
-// Simple admin auth - TODO: Add proper authentication
-$isAdmin = true;
-
 require_once __DIR__ . '/../BuyerAuth.php';
 $auth = new BuyerAuth();
+
+// Require admin authentication
+$buyer = $auth->getCurrentBuyer();
+if (!$buyer || empty($buyer['is_admin'])) {
+    header('Location: /buyer/login.php');
+    exit;
+}
+$isAdmin = true;
+
 $db = $auth->getDb();
 
 $message = '';

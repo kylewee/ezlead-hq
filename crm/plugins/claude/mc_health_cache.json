@@ -1,0 +1,42 @@
+{
+    "mitchell1": {
+        "status": "green",
+        "note": "Working - session alive, checked 44m ago, cookie fresh"
+    },
+    "signalwire_sms": {
+        "status": "green",
+        "note": "Working - SignalWire API responding"
+    },
+    "voice_pipeline": {
+        "status": "green",
+        "note": "Working - whisper server + pipeline ready"
+    },
+    "ollama": {
+        "status": "green",
+        "note": "Working - nomic-embed-text:latest, mistral:latest"
+    },
+    "estimates": {
+        "status": "green",
+        "note": "Working - EstimateEngine + Mitchell1"
+    },
+    "crm_api": {
+        "status": "green",
+        "note": "Working"
+    },
+    "mechanic_automation": {
+        "status": "green",
+        "note": "Working - last run 4m ago"
+    },
+    "session_tracking": {
+        "status": "green",
+        "note": "Working"
+    },
+    "uptime_sites": {
+        "status": "green",
+        "note": "Working - all 11 sites up"
+    },
+    "server": {
+        "status": "green",
+        "note": "Done"
+    }
+}

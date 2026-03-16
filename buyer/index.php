@@ -1,121 +1,198 @@
 <?php
 /**
  * Buyer Portal - Dashboard
- * Shows leads from CRM (app_entity_25)
+ * Lead cards, stats, balance — the living room.
  */
-require_once __DIR__ . '/auth.php';
-$user = requireAuth();
+require_once __DIR__ . '/BuyerAuth.php';
+$auth = new BuyerAuth();
+$buyer = $auth->requireAuth();
+$db = $auth->getDb();
 
-$db = getDb();
+$buyerId = $buyer['id'];
+$balance = $buyer['balance'] ?? 0;
+$freeLeads = $buyer['free_leads_remaining'] ?? 0;
+$pricePerLead = ($buyer['price_per_lead'] ?? 3500) / 100;
 
-// Get lead stats
-$stats = ['balance' => floatval($user['balance'] ?? 0), 'leads_total' => 0, 'leads_this_week' => 0, 'leads_today' => 0];
+// Stats
+$stmt = $db->prepare("SELECT COUNT(*) FROM buyer_leads WHERE buyer_id = :id");
+$stmt->bindValue(':id', $buyerId);
+$totalLeads = $stmt->execute()->fetchArray()[0];
 
-// Total leads for this buyer
-$stmt = $db->prepare("SELECT COUNT(*) as cnt FROM app_entity_25 WHERE field_219 = :uid");
-$stmt->execute([':uid' => $user['user_id']]);
-$stats['leads_total'] = $stmt->fetch()['cnt'];
+$stmt = $db->prepare("SELECT COUNT(*) FROM buyer_leads WHERE buyer_id = :id AND created_at >= datetime('now', '-7 days')");
+$stmt->bindValue(':id', $buyerId);
+$weekLeads = $stmt->execute()->fetchArray()[0];
 
-// Leads this week
-$stmt = $db->prepare("SELECT COUNT(*) as cnt FROM app_entity_25 WHERE field_219 = :uid AND date_added >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
-$stmt->execute([':uid' => $user['user_id']]);
-$stats['leads_this_week'] = $stmt->fetch()['cnt'];
+$stmt = $db->prepare("SELECT COUNT(*) FROM buyer_leads WHERE buyer_id = :id AND date(created_at) = date('now')");
+$stmt->bindValue(':id', $buyerId);
+$todayLeads = $stmt->execute()->fetchArray()[0];
 
-// Leads today
-$stmt = $db->prepare("SELECT COUNT(*) as cnt FROM app_entity_25 WHERE field_219 = :uid AND DATE(date_added) = CURDATE()");
-$stmt->execute([':uid' => $user['user_id']]);
-$stats['leads_today'] = $stmt->fetch()['cnt'];
+// Total spent
+$stmt = $db->prepare("SELECT COALESCE(SUM(ABS(amount)), 0) FROM buyer_transactions WHERE buyer_id = :id AND type = 'charge'");
+$stmt->bindValue(':id', $buyerId);
+$totalSpent = $stmt->execute()->fetchArray()[0];
 
-// Get recent leads
+// Recent leads (last 50)
 $stmt = $db->prepare("
-    SELECT id, field_210 as name, field_211 as phone, field_212 as email,
-           field_213 as address, field_214 as zip, field_216 as vertical,
-           field_217 as notes, field_218 as stage, date_added
-    FROM app_entity_25
-    WHERE field_219 = :uid
-    ORDER BY date_added DESC
+    SELECT id, lead_data, site_domain, price, status, created_at
+    FROM buyer_leads
+    WHERE buyer_id = :id
+    ORDER BY created_at DESC
     LIMIT 50
 ");
-$stmt->execute([':uid' => $user['user_id']]);
-$leads = $stmt->fetchAll();
+$stmt->bindValue(':id', $buyerId);
+$result = $stmt->execute();
+$leads = [];
+while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
+    $data = json_decode($row['lead_data'], true) ?? [];
+    $row['parsed'] = $data;
+    // Mark leads from today as "new"
+    $row['is_new'] = (date('Y-m-d', strtotime($row['created_at'])) === date('Y-m-d'));
+    $leads[] = $row;
+}
+
+// Low balance warning
+$lowBalance = ($balance / 100) < $pricePerLead && $freeLeads <= 0;
+
+$pageTitle = 'Dashboard';
+$activePage = 'dashboard';
+require_once __DIR__ . '/includes/portal_header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buyer Portal - Dashboard</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; min-height: 100vh; }
-        .header { background: linear-gradient(135deg, #1e3a5f 0%, #2a4a75 100%); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 20px; }
-        .header-right { display: flex; align-items: center; gap: 20px; }
-        .balance { background: rgba(255,255,255,0.15); padding: 8px 16px; border-radius: 8px; font-size: 14px; }
-        .balance strong { font-size: 18px; }
-        .header a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 14px; }
-        .header a:hover { color: white; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 30px; }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .stat-card h3 { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-        .stat-card .value { font-size: 32px; font-weight: 700; color: #1e3a5f; }
-        .stat-card.balance-card .value { color: #27ae60; }
-        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .section-header h2 { font-size: 20px; color: #333; }
-        .leads-table { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #eee; }
-        th { background: #f8f9fa; font-weight: 600; font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
-        td { font-size: 14px; }
-        tr:hover { background: #fafbfc; }
-        tr:last-child td { border-bottom: none; }
-        .lead-name { font-weight: 600; color: #333; }
-        .lead-contact { color: #666; font-size: 13px; }
-        .lead-vertical { display: inline-block; padding: 4px 10px; background: #e8f4fd; color: #1e3a5f; border-radius: 4px; font-size: 12px; }
-        .empty-state { text-align: center; padding: 60px 20px; color: #666; }
-        .empty-state h3 { font-size: 18px; margin-bottom: 10px; color: #333; }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>Buyer Portal</h1>
-        <div class="header-right">
-            <span>Welcome, <?= htmlspecialchars($user['company'] ?: $user['email']) ?></span>
-            <div class="balance">Balance: <strong>$<?= number_format($stats['balance'], 2) ?></strong></div>
-            <a href="/buyer/logout.php">Logout</a>
+
+    <?php if ($lowBalance): ?>
+    <div style="padding: 0 24px; max-width: 1200px; margin: 16px auto 0;">
+        <div class="alert alert-warning">
+            Your balance is below $<?= number_format($pricePerLead, 2) ?> — new leads are paused until you add funds.
+            <a href="/buyer/fund.php" class="btn btn-sm btn-green" style="margin-left: 12px;">Add Funds</a>
         </div>
     </div>
-    <div class="container">
+    <?php endif; ?>
+
+    <div class="portal-content">
+        <!-- Stats -->
         <div class="stats-grid">
-            <div class="stat-card balance-card"><h3>Balance</h3><div class="value">$<?= number_format($stats['balance'], 2) ?></div></div>
-            <div class="stat-card"><h3>Leads Today</h3><div class="value"><?= $stats['leads_today'] ?></div></div>
-            <div class="stat-card"><h3>This Week</h3><div class="value"><?= $stats['leads_this_week'] ?></div></div>
-            <div class="stat-card"><h3>Total Leads</h3><div class="value"><?= $stats['leads_total'] ?></div></div>
+            <div class="stat-card stat-balance">
+                <div class="stat-label">Balance</div>
+                <div class="stat-value">$<?= number_format($balance / 100, 2) ?></div>
+            </div>
+            <?php if ($freeLeads > 0): ?>
+            <div class="stat-card stat-free">
+                <div class="stat-label">Free Leads Left</div>
+                <div class="stat-value"><?= $freeLeads ?></div>
+            </div>
+            <?php endif; ?>
+            <div class="stat-card stat-today">
+                <div class="stat-label">Today</div>
+                <div class="stat-value"><?= $todayLeads ?></div>
+            </div>
+            <div class="stat-card stat-week">
+                <div class="stat-label">This Week</div>
+                <div class="stat-value"><?= $weekLeads ?></div>
+            </div>
+            <div class="stat-card stat-total">
+                <div class="stat-label">All Time</div>
+                <div class="stat-value"><?= $totalLeads ?></div>
+            </div>
         </div>
-        <div class="section-header"><h2>Recent Leads</h2></div>
-        <div class="leads-table">
-            <?php if (empty($leads)): ?>
-                <div class="empty-state"><h3>No leads yet</h3><p>Leads will appear here as they're assigned to you.</p></div>
-            <?php else: ?>
-                <table>
-                    <thead><tr><th>Name</th><th>Contact</th><th>Location</th><th>Service</th><th>Date</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($leads as $lead): ?>
-                        <tr>
-                            <td><div class="lead-name"><?= htmlspecialchars($lead['name']) ?></div></td>
-                            <td><div><?= htmlspecialchars($lead['phone']) ?></div><div class="lead-contact"><?= htmlspecialchars($lead['email']) ?></div></td>
-                            <td><div><?= htmlspecialchars($lead['address']) ?></div><div class="lead-contact"><?= htmlspecialchars($lead['zip']) ?></div></td>
-                            <td><span class="lead-vertical"><?= htmlspecialchars($lead['vertical']) ?></span></td>
-                            <td><?= date('M j, g:i a', strtotime($lead['date_added'])) ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+
+        <!-- Quick Actions -->
+        <div style="margin-bottom: 24px;">
+            <div class="quick-actions">
+                <a href="/buyer/fund.php" class="btn btn-green btn-sm">Add Funds</a>
+                <?php if ($totalLeads > 0): ?>
+                <a href="/buyer/export.php" class="btn btn-outline btn-sm">Export CSV</a>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Leads -->
+        <div class="section-header">
+            <h2>Your Leads</h2>
+            <?php if ($totalLeads > 0): ?>
+            <span style="font-size: 13px; color: var(--gray-400);">Showing latest <?= min(50, $totalLeads) ?> of <?= $totalLeads ?></span>
             <?php endif; ?>
         </div>
+
+        <?php if (empty($leads)): ?>
+            <div class="card">
+                <div class="empty-state">
+                    <h3>No leads yet</h3>
+                    <p>Leads will show up here as they come in.<?php if ($freeLeads > 0): ?> You have <?= $freeLeads ?> free test leads waiting.<?php endif; ?></p>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="leads-grid">
+                <?php foreach ($leads as $lead):
+                    $d = $lead['parsed'];
+                    $name = trim(($d['first_name'] ?? '') . ' ' . ($d['last_name'] ?? ''));
+                    if (!$name || $name === ' ') $name = $d['name'] ?? 'Unknown';
+                    $phone = $d['phone'] ?? '';
+                    $email = $d['email'] ?? '';
+                    $address = $d['address'] ?? $d['city'] ?? '';
+                    $zip = $d['zip'] ?? '';
+                    $notes = $d['notes'] ?? $d['service'] ?? $d['problem'] ?? '';
+                    $vehicle = '';
+                    if (!empty($d['year']) || !empty($d['make']) || !empty($d['model'])) {
+                        $vehicle = trim(($d['year'] ?? '') . ' ' . ($d['make'] ?? '') . ' ' . ($d['model'] ?? ''));
+                    }
+
+                    $statusClass = 'badge-delivered';
+                    if ($lead['is_new']) $statusClass = 'badge-new';
+                    if ($lead['status'] === 'returned') $statusClass = 'badge-returned';
+
+                    $cardClass = 'lead-card';
+                    if ($lead['is_new']) $cardClass .= ' lead-new';
+                    if ($lead['status'] === 'returned') $cardClass .= ' lead-returned';
+
+                    $statusLabel = $lead['is_new'] ? 'New' : ucfirst($lead['status']);
+                ?>
+                <div class="<?= $cardClass ?>">
+                    <div class="lead-card-top">
+                        <div class="lead-name"><?= htmlspecialchars($name) ?></div>
+                        <span class="lead-badge <?= $statusClass ?>"><?= $statusLabel ?></span>
+                    </div>
+                    <div class="lead-details">
+                        <?php if ($phone): ?>
+                        <div class="lead-detail">
+                            <span class="icon">T</span>
+                            <a href="tel:<?= htmlspecialchars(preg_replace('/[^0-9+]/', '', $phone)) ?>"><?= htmlspecialchars($phone) ?></a>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($email): ?>
+                        <div class="lead-detail">
+                            <span class="icon">@</span>
+                            <a href="mailto:<?= htmlspecialchars($email) ?>"><?= htmlspecialchars($email) ?></a>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($address || $zip): ?>
+                        <div class="lead-detail">
+                            <span class="icon">L</span>
+                            <span><?= htmlspecialchars(trim("$address $zip")) ?></span>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($vehicle): ?>
+                        <div class="lead-detail">
+                            <span class="icon">V</span>
+                            <span><?= htmlspecialchars($vehicle) ?></span>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($notes): ?>
+                        <div class="lead-detail">
+                            <span class="icon">N</span>
+                            <span style="color: var(--gray-600);"><?= htmlspecialchars(mb_strimwidth($notes, 0, 80, '...')) ?></span>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="lead-footer">
+                        <span>
+                            <span class="lead-source"><?= htmlspecialchars($lead['site_domain'] ?? '') ?></span>
+                            <span class="lead-price" style="margin-left: 8px;">$<?= number_format($lead['price'] / 100, 2) ?></span>
+                        </span>
+                        <span><?= date('M j, g:i a', strtotime($lead['created_at'])) ?></span>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </div>
-<!-- CRM Analytics -->
-<script>(function(){navigator.sendBeacon("https://ezlead4u.com/crm/plugins/claude/track.php",JSON.stringify({url:location.href,ref:document.referrer}));})()</script>
-</body>
-</html>
+
+<?php require_once __DIR__ . '/includes/portal_footer.php'; ?>

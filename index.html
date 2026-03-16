@@ -4,313 +4,806 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EzLead - Quality Leads for Service Contractors</title>
+    <meta name="description" content="EzLead connects contractors with exclusive, high-quality leads. Get real-time leads delivered directly to your phone — sod, mechanic, septic, landscaping, and more.">
+    <link rel="canonical" href="https://ezlead4u.com/" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta property="og:title" content="EzLead - Quality Leads for Service Contractors">
+    <meta property="og:description" content="Get exclusive leads for your service business delivered straight to your phone. Pay per lead, no contracts.">
+    <meta property="og:image" content="https://ezlead4u.com/favicon.svg">
+    <meta property="og:url" content="https://ezlead4u.com/">
+    <meta property="og:type" content="website">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@600;700;800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --navy-900: #0f1f33;
+            --navy-800: #1a3050;
+            --navy-700: #1e3a5f;
+            --navy-600: #2a4a75;
+            --green-700: #388e3c;
+            --green-600: #43a047;
+            --green-500: #4CAF50;
+            --green-400: #66bb6a;
+            --green-100: #e8f5e9;
+            --gray-50: #f8fafb;
+            --gray-100: #f0f2f5;
+            --gray-200: #e2e6ea;
+            --gray-600: #5a6577;
+            --gray-700: #444d5a;
+            --text: #2d3748;
+            --text-light: #64748b;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+            --shadow-lg: 0 10px 40px -10px rgba(0,0,0,0.15);
+            --shadow-green: 0 8px 25px -5px rgba(76, 175, 80, 0.2);
+        }
+
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
-            color: #333;
-            line-height: 1.6;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--gray-50);
+            color: var(--text);
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* Header */
         .header {
-            background: linear-gradient(135deg, #1e3a5f 0%, #0f1f33 100%);
+            background: linear-gradient(135deg, var(--navy-700) 0%, var(--navy-900) 100%);
             color: white;
-            padding: 20px 40px;
+            padding: 16px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
         .logo {
-            font-size: 24px;
+            font-family: 'Fraunces', serif;
+            font-size: 26px;
             font-weight: 700;
+            letter-spacing: -0.5px;
         }
-        .logo span { color: #4CAF50; }
+        .logo span { color: var(--green-400); }
         .nav a {
-            color: white;
+            color: rgba(255,255,255,0.85);
             text-decoration: none;
-            margin-left: 30px;
+            margin-left: 28px;
             font-weight: 500;
-            transition: opacity 0.2s;
+            font-size: 15px;
+            transition: color 0.2s;
         }
-        .nav a:hover { opacity: 0.8; }
+        .nav a:hover { color: white; }
         .nav .btn {
-            background: #4CAF50;
+            background: var(--green-500);
+            color: white;
             padding: 10px 24px;
-            border-radius: 6px;
+            border-radius: 8px;
+            transition: background 0.2s, transform 0.15s;
         }
-        .nav .btn:hover { background: #45a049; }
+        .nav .btn:hover { background: var(--green-600); transform: translateY(-1px); }
+
+        /* Hamburger */
+        .hamburger {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+        }
+        .hamburger span {
+            display: block;
+            width: 24px;
+            height: 3px;
+            background: white;
+            margin: 5px 0;
+            border-radius: 2px;
+            transition: transform 0.3s, opacity 0.3s;
+        }
+        .hamburger.active span:nth-child(1) { transform: rotate(45deg) translate(5px, 6px); }
+        .hamburger.active span:nth-child(2) { opacity: 0; }
+        .hamburger.active span:nth-child(3) { transform: rotate(-45deg) translate(5px, -6px); }
 
         /* Hero */
         .hero {
-            background: linear-gradient(135deg, #1e3a5f 0%, #2a4a75 100%);
+            background: linear-gradient(135deg, var(--navy-700) 0%, var(--navy-600) 100%);
             color: white;
-            padding: 80px 40px;
+            padding: clamp(60px, 10vw, 100px) 40px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+        }
+        .hero-content { position: relative; z-index: 1; }
         .hero h1 {
-            font-size: 48px;
+            font-family: 'Fraunces', serif;
+            font-size: clamp(2.2rem, 5vw, 3.4rem);
             margin-bottom: 20px;
-            font-weight: 700;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1.15;
         }
         .hero p {
-            font-size: 20px;
+            font-size: clamp(1rem, 2vw, 1.25rem);
             opacity: 0.9;
             max-width: 600px;
             margin: 0 auto 40px;
+            line-height: 1.7;
         }
         .hero-buttons {
             display: flex;
-            gap: 20px;
+            gap: 16px;
             justify-content: center;
             flex-wrap: wrap;
         }
+        .trust-badges {
+            display: flex;
+            gap: 32px;
+            justify-content: center;
+            margin-top: 48px;
+            flex-wrap: wrap;
+        }
+        .trust-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            opacity: 0.7;
+            font-weight: 500;
+        }
+        .trust-badge svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--green-400);
+        }
+
+        /* Buttons */
         .btn-primary {
-            background: #4CAF50;
+            background: var(--green-500);
             color: white;
             padding: 16px 40px;
-            border-radius: 8px;
+            border-radius: 10px;
             text-decoration: none;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 600;
-            transition: transform 0.2s, background 0.2s;
+            transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+            box-shadow: var(--shadow-green);
         }
         .btn-primary:hover {
-            background: #45a049;
+            background: var(--green-600);
             transform: translateY(-2px);
+            box-shadow: 0 12px 30px -5px rgba(76, 175, 80, 0.3);
         }
         .btn-secondary {
             background: transparent;
             color: white;
             padding: 16px 40px;
-            border-radius: 8px;
+            border-radius: 10px;
             text-decoration: none;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 600;
-            border: 2px solid rgba(255,255,255,0.5);
-            transition: border-color 0.2s;
+            border: 2px solid rgba(255,255,255,0.3);
+            transition: border-color 0.2s, background 0.2s;
         }
         .btn-secondary:hover {
-            border-color: white;
+            border-color: rgba(255,255,255,0.7);
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* Section Headers */
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        .section-header h2 {
+            font-family: 'Fraunces', serif;
+            font-size: clamp(1.8rem, 4vw, 2.4rem);
+            color: var(--navy-700);
+            letter-spacing: -0.5px;
+            margin-bottom: 12px;
+        }
+        .section-header p {
+            color: var(--text-light);
+            font-size: 1.1rem;
+            max-width: 500px;
+            margin: 0 auto;
         }
 
         /* Features */
         .features {
-            padding: 80px 40px;
+            padding: clamp(60px, 8vw, 100px) 40px;
             max-width: 1200px;
             margin: 0 auto;
         }
-        .features h2 {
-            text-align: center;
-            font-size: 36px;
-            margin-bottom: 60px;
-            color: #1e3a5f;
-        }
         .features-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 40px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 28px;
         }
         .feature {
             background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 36px;
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--gray-200);
+            transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
+        }
+        .feature:hover {
+            border-color: var(--green-500);
+            box-shadow: 0 10px 25px -5px rgba(76, 175, 80, 0.12);
+            transform: translateY(-3px);
         }
         .feature-icon {
-            width: 60px;
-            height: 60px;
-            background: #e8f5e9;
-            border-radius: 12px;
+            width: 56px;
+            height: 56px;
+            background: var(--green-100);
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
+            font-size: 26px;
             margin-bottom: 20px;
         }
         .feature h3 {
-            font-size: 22px;
-            margin-bottom: 12px;
-            color: #1e3a5f;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--navy-700);
+            font-weight: 600;
         }
         .feature p {
-            color: #666;
+            color: var(--text-light);
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        /* Testimonials */
+        .testimonials {
+            background: var(--gray-100);
+            padding: clamp(60px, 8vw, 100px) 40px;
+            border-top: 1px solid var(--gray-200);
+        }
+        .testimonials .section-header h2 { color: var(--navy-700); }
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 28px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .testimonial {
+            background: white;
+            padding: 32px;
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--gray-200);
+            position: relative;
+        }
+        .testimonial::before {
+            content: '\201C';
+            font-family: 'Fraunces', serif;
+            font-size: 60px;
+            color: var(--green-500);
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            line-height: 1;
+            opacity: 0.2;
+        }
+        .testimonial p {
+            color: var(--gray-600);
+            font-style: italic;
+            margin-bottom: 16px;
+            position: relative;
+            z-index: 1;
+            line-height: 1.7;
+        }
+        .testimonial-author {
+            font-weight: 600;
+            color: var(--navy-700);
+        }
+        .testimonial-author span {
+            display: block;
+            font-weight: 400;
+            color: var(--text-light);
+            font-size: 14px;
         }
 
         /* How it Works */
         .how-it-works {
-            background: #1e3a5f;
+            background: var(--navy-700);
             color: white;
-            padding: 80px 40px;
+            padding: clamp(60px, 8vw, 100px) 40px;
         }
-        .how-it-works h2 {
-            text-align: center;
-            font-size: 36px;
-            margin-bottom: 60px;
-        }
+        .how-it-works .section-header h2 { color: white; }
+        .how-it-works .section-header p { color: rgba(255,255,255,0.7); }
         .steps {
             display: flex;
             justify-content: center;
-            gap: 60px;
+            gap: 40px;
             flex-wrap: wrap;
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 0 auto;
         }
         .step {
             text-align: center;
-            max-width: 250px;
+            max-width: 230px;
         }
         .step-number {
-            width: 60px;
-            height: 60px;
-            background: #4CAF50;
+            width: 56px;
+            height: 56px;
+            background: var(--green-500);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 700;
             margin: 0 auto 20px;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
         }
         .step h3 {
-            font-size: 20px;
+            font-family: 'Fraunces', serif;
+            font-size: 1.15rem;
             margin-bottom: 10px;
+            font-weight: 600;
         }
         .step p {
             opacity: 0.8;
-            font-size: 15px;
+            font-size: 0.95rem;
+            line-height: 1.7;
         }
 
         /* Pricing */
         .pricing {
-            padding: 80px 40px;
+            padding: clamp(60px, 8vw, 100px) 40px;
             text-align: center;
+            border-top: 1px solid var(--gray-200);
         }
-        .pricing h2 {
-            font-size: 36px;
-            margin-bottom: 20px;
-            color: #1e3a5f;
-        }
-        .pricing > p {
-            color: #666;
-            margin-bottom: 40px;
-            font-size: 18px;
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+            max-width: 1100px;
+            margin: 0 auto;
+            align-items: start;
         }
         .price-card {
             background: white;
-            max-width: 400px;
-            margin: 0 auto;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 36px;
+            border-radius: 20px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--gray-200);
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .price-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        .price-card.featured {
+            border: 2px solid var(--green-500);
+            box-shadow: var(--shadow-lg);
+            transform: scale(1.03);
+        }
+        .price-card.featured:hover { transform: scale(1.03) translateY(-4px); }
+        .price-card .tier-badge {
+            display: inline-block;
+            background: var(--green-500);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .price-card .tier-name {
+            font-family: 'Fraunces', serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--navy-700);
+            margin-bottom: 8px;
         }
         .price {
-            font-size: 48px;
+            font-family: 'Fraunces', serif;
+            font-size: 28px;
             font-weight: 700;
-            color: #1e3a5f;
+            color: var(--green-500);
+            margin-bottom: 6px;
         }
         .price span {
-            font-size: 18px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 16px;
             font-weight: 400;
-            color: #666;
+            color: var(--text-light);
+        }
+        .price-subtitle {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 20px;
         }
         .price-card ul {
             list-style: none;
-            margin: 30px 0;
+            margin: 20px 0 24px;
             text-align: left;
         }
         .price-card li {
-            padding: 12px 0;
-            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--gray-100);
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: var(--gray-700);
         }
         .price-card li:last-child { border: none; }
         .check {
-            color: #4CAF50;
+            color: var(--green-500);
             font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        /* FAQ */
+        .faq {
+            padding: clamp(60px, 8vw, 100px) 40px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .faq-item {
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .faq-question {
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 20px 0;
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--navy-700);
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: inherit;
+            transition: color 0.2s;
+        }
+        .faq-question:hover { color: var(--green-500); }
+        .faq-question::after {
+            content: '+';
+            font-size: 24px;
+            font-weight: 300;
+            flex-shrink: 0;
+            margin-left: 16px;
+        }
+        .faq-item.open .faq-question::after {
+            content: '\2212';
+        }
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .faq-answer p {
+            padding: 0 0 20px;
+            color: var(--text-light);
+            line-height: 1.7;
+        }
+        .faq-item.open .faq-answer {
+            max-height: 300px;
         }
 
         /* CTA */
         .cta {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            background: linear-gradient(135deg, var(--green-500) 0%, var(--green-700) 100%);
             color: white;
-            padding: 60px 40px;
+            padding: clamp(50px, 8vw, 80px) 40px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
+        .cta::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            opacity: 0.04;
+        }
+        .cta-content { position: relative; z-index: 1; }
         .cta h2 {
-            font-size: 32px;
-            margin-bottom: 20px;
+            font-family: 'Fraunces', serif;
+            font-size: clamp(1.6rem, 4vw, 2.2rem);
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
         }
         .cta p {
-            font-size: 18px;
+            font-size: 1.1rem;
             opacity: 0.9;
-            margin-bottom: 30px;
+            margin-bottom: 28px;
         }
         .btn-white {
             background: white;
-            color: #1e3a5f;
+            color: var(--navy-700);
             padding: 16px 40px;
-            border-radius: 8px;
+            border-radius: 10px;
             text-decoration: none;
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 600;
             display: inline-block;
+            transition: transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         .btn-white:hover {
             transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        /* Contact */
+        .contact {
+            background: var(--navy-700);
+            color: white;
+            padding: clamp(60px, 8vw, 100px) 40px;
+        }
+        .contact .section-header h2 { color: white; }
+        .contact .section-header p { color: rgba(255,255,255,0.7); }
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .contact-method {
+            text-align: center;
+        }
+        .contact-method .icon {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+        .contact-method h3 {
+            font-family: 'Fraunces', serif;
+            font-size: 1.15rem;
+            margin-bottom: 8px;
+        }
+        .contact-method a {
+            color: var(--green-400);
+            text-decoration: none;
+            font-size: 18px;
+            transition: color 0.2s;
+        }
+        .contact-method a:hover { color: var(--green-500); text-decoration: underline; }
+        .contact-method p {
+            opacity: 0.6;
+            font-size: 14px;
+            margin-top: 4px;
         }
 
         /* Footer */
         .footer {
-            background: #0f1f33;
-            color: rgba(255,255,255,0.7);
-            padding: 40px;
+            background: var(--navy-900);
+            color: rgba(255,255,255,0.6);
+            padding: 32px 40px;
             text-align: center;
+            font-size: 0.9rem;
         }
         .footer a {
-            color: rgba(255,255,255,0.7);
+            color: rgba(255,255,255,0.6);
             text-decoration: none;
+            transition: color 0.2s;
         }
         .footer a:hover { color: white; }
+        .footer-links {
+            margin-bottom: 12px;
+        }
+        .footer-links a {
+            margin: 0 12px;
+        }
+
+        /* Back to Top */
+        .back-to-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 46px;
+            height: 46px;
+            background: var(--navy-700);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s, transform 0.2s, background 0.2s;
+            z-index: 999;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .back-to-top.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .back-to-top:hover {
+            background: var(--green-500);
+            transform: translateY(-2px);
+        }
+
+        /* Chat Widget */
+        .chat-widget {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            z-index: 998;
+        }
+        .chat-bubble {
+            width: 56px;
+            height: 56px;
+            background: var(--green-500);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+            transition: transform 0.2s, background 0.2s;
+            border: none;
+            color: white;
+            font-size: 24px;
+        }
+        .chat-bubble:hover { transform: scale(1.1); background: var(--green-600); }
+        .chat-popup {
+            display: none;
+            position: absolute;
+            bottom: 70px;
+            left: 0;
+            width: 320px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        .chat-popup.open { display: block; }
+        .chat-popup-header {
+            background: var(--navy-700);
+            color: white;
+            padding: 20px;
+        }
+        .chat-popup-header h3 { font-size: 16px; margin-bottom: 4px; }
+        .chat-popup-header p { font-size: 13px; opacity: 0.8; }
+        .chat-popup-body { padding: 20px; }
+        .chat-popup-body p { font-size: 14px; color: var(--text-light); margin-bottom: 16px; line-height: 1.6; }
+        .chat-popup-body a {
+            display: block;
+            text-align: center;
+            padding: 12px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .chat-popup-body .chat-link-call {
+            background: var(--green-500);
+            color: white;
+        }
+        .chat-popup-body .chat-link-call:hover { background: var(--green-600); }
+        .chat-popup-body .chat-link-email {
+            background: var(--gray-100);
+            color: var(--navy-700);
+        }
+        .chat-popup-body .chat-link-email:hover { background: var(--gray-200); }
+
+        /* Tablet */
+        @media (max-width: 900px) {
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+            .trust-badges { gap: 20px; }
+            .steps { gap: 28px; }
+            .pricing-grid { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
+            .price-card.featured { transform: none; }
+            .price-card.featured:hover { transform: translateY(-4px); }
+        }
 
         /* Mobile */
         @media (max-width: 768px) {
-            .header { padding: 15px 20px; }
-            .nav a { margin-left: 15px; font-size: 14px; }
-            .hero { padding: 60px 20px; }
-            .hero h1 { font-size: 32px; }
-            .hero p { font-size: 16px; }
-            .features, .pricing { padding: 60px 20px; }
-            .steps { gap: 40px; }
+            .header {
+                padding: 14px 20px;
+                flex-wrap: wrap;
+            }
+            .hamburger { display: block; }
+            .nav {
+                display: none;
+                width: 100%;
+                padding-top: 15px;
+            }
+            .nav.open { display: flex; flex-direction: column; gap: 0; }
+            .nav a {
+                margin-left: 0;
+                padding: 12px 0;
+                border-top: 1px solid rgba(255,255,255,0.1);
+                font-size: 16px;
+            }
+            .nav .btn {
+                display: inline-block;
+                text-align: center;
+                margin-top: 8px;
+            }
+            .hero { padding: clamp(40px, 8vw, 80px) 20px; }
+            .btn-primary, .btn-secondary { padding: 14px 28px; font-size: 16px; }
+            .features, .pricing, .faq { padding: 50px 20px; }
+            .section-header { margin-bottom: 40px; }
+            .features-grid { grid-template-columns: 1fr; gap: 20px; }
+            .feature { padding: 28px; }
+            .testimonials { padding: 50px 20px; }
+            .testimonials-grid { grid-template-columns: 1fr; }
+            .how-it-works { padding: 50px 20px; }
+            .steps { gap: 24px; }
+            .step { max-width: 100%; }
+            .price-card { padding: 32px 24px; }
+            .cta { padding: 40px 20px; }
+            .contact { padding: 50px 20px; }
+            .trust-badges { flex-direction: column; align-items: center; gap: 12px; }
+            .back-to-top { bottom: 20px; right: 20px; width: 42px; height: 42px; font-size: 18px; }
+            .chat-widget { bottom: 20px; left: 20px; }
+            .chat-bubble { width: 48px; height: 48px; font-size: 22px; }
+            .chat-popup { width: 280px; }
         }
     </style>
 </head>
 <body>
     <header class="header">
         <div class="logo">Ez<span>Lead</span></div>
+        <button class="hamburger" aria-label="Toggle menu" onclick="this.classList.toggle('active');document.querySelector('.nav').classList.toggle('open')">
+            <span></span><span></span><span></span>
+        </button>
         <nav class="nav">
-            <a href="#features">Features</a>
+            <a href="#features">Why EzLead</a>
             <a href="#how-it-works">How It Works</a>
             <a href="#pricing">Pricing</a>
-            <a href="/crm/">Login</a>
-            <a href="/crm/?module=users/registration" class="btn">Get Started</a>
+            <a href="#faq">FAQ</a>
+            <a href="#contact">Contact</a>
+            <a href="/buyer/login.php">Login</a>
+            <a href="/buyer/signup.php" class="btn">Get Started</a>
         </nav>
     </header>
 
     <section class="hero">
-        <h1>Quality Leads. Zero Hassle.</h1>
-        <p>Get exclusive leads for your service business delivered straight to your phone. Sod, landscaping, mechanic, septic, welding, and more.</p>
-        <div class="hero-buttons">
-            <a href="/crm/?module=users/registration" class="btn-primary">Start Getting Leads</a>
-            <a href="#how-it-works" class="btn-secondary">See How It Works</a>
+        <div class="hero-content">
+            <h1>Quality Leads. Zero Hassle.</h1>
+            <p>Get exclusive leads for your service business delivered straight to your phone. Sod, landscaping, mechanic, septic, welding, and more.</p>
+            <div class="hero-buttons">
+                <a href="/buyer/signup.php" class="btn-primary">Start Getting Leads</a>
+                <a href="#how-it-works" class="btn-secondary">See How It Works</a>
+            </div>
+            <div class="trust-badges">
+                <div class="trust-badge">
+                    <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                    Exclusive Leads
+                </div>
+                <div class="trust-badge">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    No Contracts
+                </div>
+                <div class="trust-badge">
+                    <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+                    Real-Time Delivery
+                </div>
+            </div>
         </div>
     </section>
 
     <section class="features" id="features">
-        <h2>Why Contractors Choose EzLead</h2>
+        <div class="section-header">
+            <h2>Why Contractors Choose EzLead</h2>
+            <p>Everything you need to fill your schedule with quality jobs.</p>
+        </div>
         <div class="features-grid">
             <div class="feature">
                 <div class="feature-icon">📍</div>
@@ -346,52 +839,224 @@
     </section>
 
     <section class="how-it-works" id="how-it-works">
-        <h2>How It Works</h2>
+        <div class="section-header">
+            <h2>How It Works</h2>
+            <p>Four steps to start growing your business.</p>
+        </div>
         <div class="steps">
             <div class="step">
                 <div class="step-number">1</div>
-                <h3>Sign Up</h3>
+                <h3>Sign Up Free</h3>
                 <p>Create your account in 2 minutes. Set your zip codes and service type.</p>
             </div>
             <div class="step">
                 <div class="step-number">2</div>
-                <h3>Add Credit</h3>
-                <p>Load your account with credit. Start with as little as $100.</p>
+                <h3>Get 3 Free Leads</h3>
+                <p>Your first 3 leads are on us so you can see the quality before spending a dime.</p>
             </div>
             <div class="step">
                 <div class="step-number">3</div>
-                <h3>Get Leads</h3>
-                <p>Receive leads instantly via email or SMS. Call them first, close more jobs.</p>
+                <h3>Add Credit</h3>
+                <p>Like what you see? Add credit starting at $100 to keep the leads flowing.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">4</div>
+                <h3>Grow Your Business</h3>
+                <p>Receive leads instantly via email or SMS. Call first, close more jobs.</p>
             </div>
         </div>
     </section>
 
     <section class="pricing" id="pricing">
-        <h2>Simple Pricing</h2>
-        <p>No monthly fees. No contracts. Just pay per lead.</p>
-        <div class="price-card">
-            <div class="price" style="color: #4CAF50; font-size: 28px; margin-bottom: 10px;">3 Free Leads</div>
-            <p style="color: #666; margin-bottom: 20px;">Then $35 per lead after that</p>
-            <ul>
-                <li><span class="check">✓</span> Exclusive to your area</li>
-                <li><span class="check">✓</span> Real-time delivery</li>
-                <li><span class="check">✓</span> Name, phone, email, address</li>
-                <li><span class="check">✓</span> No contracts or minimums</li>
-                <li><span class="check">✓</span> Pause or cancel anytime</li>
-            </ul>
-            <a href="/crm/?module=users/registration" class="btn-primary" style="display:block; text-align:center;">Start Free Trial</a>
+        <div class="section-header">
+            <h2>Simple Pricing</h2>
+            <p>Start free. No monthly fees. No contracts. Just pay per lead.</p>
+        </div>
+        <div class="pricing-grid">
+            <div class="price-card">
+                <div class="tier-name">Starter</div>
+                <div class="price">Free <span>to start</span></div>
+                <p class="price-subtitle">3 leads on us &mdash; no card required</p>
+                <ul>
+                    <li><span class="check">✓</span> 3 free test leads</li>
+                    <li><span class="check">✓</span> Real-time delivery</li>
+                    <li><span class="check">✓</span> Full contact info</li>
+                    <li><span class="check">✓</span> Email + SMS alerts</li>
+                    <li><span class="check">✓</span> No commitment</li>
+                </ul>
+                <a href="/buyer/signup.php" class="btn-primary" style="display:block; text-align:center;">Start Free Trial</a>
+            </div>
+            <div class="price-card featured">
+                <span class="tier-badge">Most Popular</span>
+                <div class="tier-name">Pay Per Lead</div>
+                <div class="price">$35 <span>/ lead</span></div>
+                <p class="price-subtitle">Add credit starting at $100</p>
+                <ul>
+                    <li><span class="check">✓</span> Everything in Starter</li>
+                    <li><span class="check">✓</span> Exclusive to your area</li>
+                    <li><span class="check">✓</span> Zip code targeting</li>
+                    <li><span class="check">✓</span> Pause anytime</li>
+                    <li><span class="check">✓</span> No contracts or minimums</li>
+                    <li><span class="check">✓</span> Lead dispute protection</li>
+                </ul>
+                <a href="/buyer/signup.php" class="btn-primary" style="display:block; text-align:center;">Get Started</a>
+            </div>
+            <div class="price-card">
+                <div class="tier-name">Volume</div>
+                <div class="price">$25 <span>/ lead</span></div>
+                <p class="price-subtitle">For high-volume contractors</p>
+                <ul>
+                    <li><span class="check">✓</span> Everything in Pay Per Lead</li>
+                    <li><span class="check">✓</span> $500+ credit loads</li>
+                    <li><span class="check">✓</span> Priority lead delivery</li>
+                    <li><span class="check">✓</span> Multiple service areas</li>
+                    <li><span class="check">✓</span> Dedicated support</li>
+                </ul>
+                <a href="/buyer/signup.php" class="btn-primary" style="display:block; text-align:center;">Contact Us</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="faq" id="faq">
+        <div class="section-header">
+            <h2>Frequently Asked Questions</h2>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">How does the free trial work?</button>
+            <div class="faq-answer">
+                <p>When you create your account, your first 3 leads are completely free. This lets you see the lead quality and close real jobs before spending any money. After your 3 free leads, you add credit to your account to keep receiving leads.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">How much do leads cost?</button>
+            <div class="faq-answer">
+                <p>Standard leads are $35 each after your 3 free leads. High-volume contractors ($500+ credit loads) qualify for $25/lead. You pre-load credit into your account starting at $100, and each lead is deducted from your balance. No monthly fees, no contracts, no surprises.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">Are the leads exclusive to me?</button>
+            <div class="faq-answer">
+                <p>Leads are exclusive to your service area and vertical. You won't be competing with dozens of other contractors for the same customer. Be the first to call and close the job.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">What information do I get with each lead?</button>
+            <div class="faq-answer">
+                <p>Every lead includes the customer's name, phone number, email address, service address, and details about the job they need done. Leads are delivered instantly via email, SMS, or both.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">Can I pause or cancel anytime?</button>
+            <div class="faq-answer">
+                <p>Yes. There are no contracts or commitments. You can pause lead delivery from your dashboard at any time and resume when you're ready. Your credit balance stays on your account.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">What if I get a bad lead?</button>
+            <div class="faq-answer">
+                <p>We stand behind our lead quality. If you receive a lead with invalid contact information or one that doesn't match your service area, contact us and we'll review it. Valid disputes are credited back to your account.</p>
+            </div>
+        </div>
+
+        <div class="faq-item">
+            <button class="faq-question">What service types do you cover?</button>
+            <div class="faq-answer">
+                <p>We generate leads for a variety of service industries including sod installation, mobile mechanic, landscaping, septic, welding, drainage, and more. During signup, you select the service types relevant to your business.</p>
+            </div>
         </div>
     </section>
 
     <section class="cta">
-        <h2>Ready to Grow Your Business?</h2>
-        <p>Join contractors already getting quality leads from EzLead.</p>
-        <a href="/crm/?module=users/registration" class="btn-white">Create Your Account</a>
+        <div class="cta-content">
+            <h2>Ready to Grow Your Business?</h2>
+            <p>Join contractors already getting quality leads from EzLead. Start with 3 free leads today.</p>
+            <a href="/buyer/signup.php" class="btn-white">Create Your Account</a>
+        </div>
+    </section>
+
+    <section class="contact" id="contact">
+        <div class="section-header">
+            <h2>Get In Touch</h2>
+            <p>Have questions before signing up? We're here to help.</p>
+        </div>
+        <div class="contact-grid">
+            <div class="contact-method">
+                <div class="icon">📞</div>
+                <h3>Call Us</h3>
+                <a href="tel:+19044955535">(904) 495-5535</a>
+                <p>Mon&ndash;Fri, 9am&ndash;5pm EST</p>
+            </div>
+            <div class="contact-method">
+                <div class="icon">📧</div>
+                <h3>Email Us</h3>
+                <a href="mailto:support@ezlead4u.com">support@ezlead4u.com</a>
+                <p>We respond within 24 hours</p>
+            </div>
+            <div class="contact-method">
+                <div class="icon">💬</div>
+                <h3>Buyer Dashboard</h3>
+                <a href="/buyer/login.php">Log in to your account</a>
+                <p>Manage leads, credit &amp; settings</p>
+            </div>
+        </div>
     </section>
 
     <footer class="footer">
-        <p>&copy; 2026 EzLead. <a href="/crm/">Buyer Login</a> | <a href="/admin/">Admin</a></p>
+        <div class="footer-links">
+            <a href="/buyer/login.php">Buyer Login</a>
+            <a href="/terms.html">Terms of Service</a>
+            <a href="/privacy.html">Privacy Policy</a>
+        </div>
+        <p>&copy; 2026 EzLead. All rights reserved.</p>
     </footer>
+
+    <button class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Back to top">&#8593;</button>
+
+    <div class="chat-widget">
+        <div class="chat-popup" id="chatPopup">
+            <div class="chat-popup-header">
+                <h3>Need help?</h3>
+                <p>We typically respond within minutes.</p>
+            </div>
+            <div class="chat-popup-body">
+                <p>Have questions about EzLead or want to get started? Reach out and we'll get you set up.</p>
+                <a href="tel:+19044955535" class="chat-link-call">Call (904) 495-5535</a>
+                <a href="mailto:support@ezlead4u.com" class="chat-link-email">Email Support</a>
+            </div>
+        </div>
+        <button class="chat-bubble" onclick="document.getElementById('chatPopup').classList.toggle('open')" aria-label="Contact us">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+        </button>
+    </div>
+
+    <script>
+    window.addEventListener('scroll', function() {
+        document.querySelector('.back-to-top').classList.toggle('visible', window.scrollY > 400);
+    });
+    document.querySelectorAll('.nav a').forEach(function(a) {
+        a.addEventListener('click', function() {
+            document.querySelector('.nav').classList.remove('open');
+            document.querySelector('.hamburger').classList.remove('active');
+        });
+    });
+    document.querySelectorAll('.faq-question').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            this.parentElement.classList.toggle('open');
+        });
+    });
+    document.addEventListener('click', function(e) {
+        var w = document.querySelector('.chat-widget');
+        if (w && !w.contains(e.target)) {
+            document.getElementById('chatPopup').classList.remove('open');
+        }
+    });
+    </script>
 <!-- CRM Analytics -->
 <script>(function(){navigator.sendBeacon("https://ezlead4u.com/crm/plugins/claude/track.php",JSON.stringify({url:location.href,ref:document.referrer}));})()</script>
 </body>

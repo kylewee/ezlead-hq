@@ -1002,13 +1002,16 @@ define('TEXT_FIELDTYPE_DROPDOWN_MULTILEVEL_VALUE_DISPLAY','Own column for each v
 define('TEXT_FIELDTYPE_DROPDOWN_MULTILEVEL_VALUE_DISPLAY_TIP','By default selected values will be display in single column');
 define('TEXT_COLUMNS_IMPORT','Import Columns');
 define('TEXT_COLUMNS_IMPORT_INFO','To import a simple list, type 1 - will be imported first column. For import dependent values, such as (country/zone) specify 2. In this case, it will be read first two columns in the file. The values in the rows must not be empty.');
-define('TEXT_DASHBOARD_DEFAULT_MSG','<h3 class="page-title">Welcome!</h3><p>This is the main page for your system. It\'s empty now, but you can display various reports and counters.</p><p>In order to display your first report, select  "Reports" on left navigation menu, create report and set option "In Dashboard".</p>');
-define('TEXT_DASHBOARD_DEFAULT_ADMIN_MSG','<h3 class="page-title">Welcome to the Rukovoditel – your new assistant in business management!</h3>
-<p>This is the main page for your system. It\'s empty now, but you can display various reports and counters.</p>
-<p>In order to display your first report, select  "Reports" on left navigation menu, create report and set option "In Dashboard".</p>
-<p>Also we recommend you to visit the "<a href="https://docs.rukovoditel.net/index.php" target="_blank">Documentation</a>". There you will find various tips on setting up the system.</p>
-<p>Still have questions? You can always contact us!</p>
-<p><a href="https://www.rukovoditel.net" target="_blank">www.rukovoditel.net</a></p>');
+define('TEXT_DASHBOARD_DEFAULT_MSG','<h3 class="page-title">Welcome to EzLead!</h3><p>Your dashboard is ready. Use the menu on the left to view your leads, manage campaigns, and track performance.</p><p>Need help? Contact us at <a href="mailto:support@ezlead4u.com">support@ezlead4u.com</a>.</p>');
+define('TEXT_DASHBOARD_DEFAULT_ADMIN_MSG','<h3 class="page-title">Welcome to EzLead Admin</h3>
+<p>Your CRM is ready to go. Here\'s how to get started:</p>
+<ul style="margin:15px 0;padding-left:20px;">
+<li><strong>Leads</strong> &ndash; View and manage incoming leads from the left menu</li>
+<li><strong>Reports</strong> &ndash; Create reports and add them to this dashboard with the "In Dashboard" option</li>
+<li><strong>Buyers</strong> &ndash; Set up lead buyer accounts and campaigns</li>
+<li><strong>Settings</strong> &ndash; Configure entities, fields, and access groups</li>
+</ul>
+<p>Questions? <a href="mailto:support@ezlead4u.com">support@ezlead4u.com</a></p>');
 define('TEXT_FILES_UPLOAD_LIMIT','Upload Limit');
 define('TEXT_FILES_UPLOAD_LIMIT_TIP','The maximum number of files that may be uploaded. Leave empty to remove any limit.');
 define('TEXT_FILES_UPLOAD_SIZE_LIMIT','File Size Limit');

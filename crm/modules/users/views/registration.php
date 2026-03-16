@@ -317,4 +317,5 @@ if(is_ext_installed())
 
 <?php echo forms_fields_rules::hidden_form_fields($current_entity_id) ?>
 
+    </div>
 </div>

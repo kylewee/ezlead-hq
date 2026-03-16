@@ -635,9 +635,31 @@ switch ($app_module_action)
         {
             $name = $_FILES['Filedata']['name'];
             
-            if(isset($_POST['filename_template']) and strlen($_POST['filename_template']) and isset($_POST['form_data']))
+            if(isset($_POST['filename_template']) and strlen($_POST['filename_template']) )
             {
-                $name = attachments::get_filename_by_template($_POST['filename_template'],$_POST['form_data'],$name);
+                $form_data = $_POST['form_data']??'';
+                
+                //prepare form data when item edit in listing with single field.
+                if(!strlen($form_data) and $current_item_id>0)
+                {
+                    
+                    $form_data = [];
+                    $item = db_find('app_entity_' . $current_entity_id, $current_item_id);
+                    
+                    foreach($item as $field_id => $field_value)
+                    {
+                        $form_data[] = [
+                            'name' => 'fields[' . str_replace('field_','', $field_id) . ']',
+                            'value' => $field_value,
+                        ];
+                    }
+                                                                                                    
+                    if(!$form_data = json_encode($form_data, JSON_INVALID_UTF8_IGNORE))
+                    {
+                        $form_data = '';
+                    }
+                }                                                
+                $name = attachments::get_filename_by_template($_POST['filename_template'], $form_data, $name);
             }
             
             $file = attachments::prepare_filename($name);                        

@@ -5,7 +5,8 @@
  * Runs every 5 minutes via cron
  */
 
-$conn = new mysqli('localhost', 'kylewee', 'rainonin', 'rukovoditel');
+require_once __DIR__ . '/../../config/database.php';
+$conn = new mysqli(DB_SERVER, DB_SERVER_USERNAME, DB_SERVER_PASSWORD, DB_DATABASE);
 if ($conn->connect_error) {
     die("Database connection failed\n");
 }

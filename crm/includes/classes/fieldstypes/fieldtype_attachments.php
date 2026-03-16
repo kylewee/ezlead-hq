@@ -619,11 +619,11 @@ class fieldtype_attachments
                         {
                             if(is_mobile())
                             {
-                                $link = link_to($file['name'], url_for('items/info', 'path=' . $options['path'] . '&action=download_attachment&file=' . urlencode(base64_encode($filename))));
+                                $link = link_to($croped_name, url_for('items/info', 'path=' . $options['path'] . '&action=download_attachment&file=' . urlencode(base64_encode($filename))));
                             }
                             else
                             {
-                                $link = link_to($file['name'],url_for('items/info','path=' . $options['path'] . '&action=download_attachment&preview=1&file=' . urlencode(base64_encode($filename))),array('target'=>'_blank'));  
+                                $link = link_to($croped_name,url_for('items/info','path=' . $options['path'] . '&action=download_attachment&preview=1&file=' . urlencode(base64_encode($filename))),array('target'=>'_blank'));  
                             }
                         }	
                         else

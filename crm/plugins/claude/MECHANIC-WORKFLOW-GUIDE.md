@@ -58,17 +58,17 @@ Every mechanic job goes through these stages. Some transitions are **automatic**
 
 ### 9. Paid
 **How it gets here:** YOU set it after payment collected
-**What happens automatically:** 3 days later → sends follow-up email ("How's your car running?") → moves to "Follow Up"
-**What YOU do:** Nothing - wait for automation
+**What happens automatically:** 1 day later → queues check-in text ("How's everything? Any concerns?") for YOUR approval → moves to "Follow Up"
+**What YOU do:** Approve or deny the check-in message (reply A or D to the text you get)
 
 ### 10. Follow Up
-**How it gets here:** Automation (3 days after paid)
-**What happens automatically:** 2 days later → sends review request email with Google review link → moves to "Review Request"
-**What YOU do:** Nothing - wait for automation
+**How it gets here:** Automation (1 day after paid, after you approve check-in)
+**What happens automatically:** 1 day later → queues review request for YOUR approval → moves to "Review Request"
+**What YOU do:** Approve or deny the review request
 
 ### 11. Review Request
-**How it gets here:** Automation (2 days after follow-up)
-**What happens:** Final stage. Customer gets Google review link + QR code
+**How it gets here:** Automation (1 day after check-in)
+**What happens:** Final stage. Customer gets Google review link (after you approve).
 **Job is done.**
 
 ---
@@ -112,12 +112,13 @@ The automation script runs every 5 minutes:
 
 | Trigger | Action |
 |---------|--------|
-| New Lead with no estimate | AI generates estimate, emails customer, moves to Estimate Sent |
-| Scheduled + 24hrs before appointment | Sends reminder email, moves to Confirmed |
-| Complete | Generates invoice, creates payment link, emails customer |
-| Paid + 3 days | Sends follow-up email, moves to Follow Up |
-| Follow Up + 2 days | Sends review request, moves to Review Request |
-| Diagnostic Complete | Generates estimate + PDF, emails customer |
+| New Lead with no estimate | AI generates estimate, queues for Kyle's approval |
+| Scheduled + 24hrs before appointment | Queues reminder for Kyle's approval, moves to Confirmed |
+| Complete | Generates invoice + payment link, queues for Kyle's approval |
+| Paid + 1 day | Queues check-in text for Kyle's approval, moves to Follow Up |
+| Follow Up + 1 day | Queues review request for Kyle's approval, moves to Review Request |
+| Estimate Sent + 2 days, no response | Queues nudge text for Kyle's approval |
+| Diagnostic Complete | Generates estimate + PDF, queues for Kyle's approval |
 
 ---
 
@@ -125,17 +126,21 @@ The automation script runs every 5 minutes:
 
 | Stage | Who Changes It | Automation |
 |-------|---------------|------------|
-| New Lead | Auto (phone pipeline) | AI estimate + email |
-| Estimate Sent | Auto | - |
-| Accepted | YOU | - |
-| Scheduled | YOU | 24hr reminder email |
+| New Lead | Auto (phone pipeline) | AI estimate → queued for approval |
+| Estimate Sent | Auto | Nudge after 2 days if no response |
+| Accepted | YOU | Scheduling slots sent (queued) |
+| Scheduled | YOU | 24hr reminder (queued) |
 | Parts Ordered | YOU (optional) | - |
 | Confirmed | Auto or YOU | - |
 | In Progress | YOU | - |
-| Complete | YOU | Invoice + payment link |
-| Paid | YOU | Follow-up in 3 days |
-| Follow Up | Auto | Review request in 2 days |
+| Complete | YOU | Invoice + payment link (queued) |
+| Paid | YOU | Check-in in 1 day (queued) |
+| Follow Up | Auto | Review request in 1 day (queued) |
 | Review Request | Auto | Final stage |
+
+**ALL customer messages are queued for your approval.** You get a text preview and reply:
+- `A 5` = approve and send message #5
+- `D 5` = deny message #5
 
 ---
 
@@ -148,4 +153,4 @@ The automation script runs every 5 minutes:
 
 ---
 
-*Last updated: Feb 22, 2026*
+*Last updated: Mar 5, 2026*

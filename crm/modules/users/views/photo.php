@@ -83,6 +83,10 @@ $(function(){
     
     $('.modal-footer .btn-primary-modal-action').hide();
     
+    $('.btn-sub-dialog-back').click(()=>{
+        $('.modal-footer .btn-primary-modal-action').show();
+    })
+    
     if(is_public_layout())
     {
         $('#sub-items-form .btn-close,#sub-items-form .close').hide()

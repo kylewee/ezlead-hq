@@ -82,12 +82,14 @@ class fieldtype_ajax_request
         
         $check_fields_types = [
             'fieldtype_input',
+            'fieldtype_input_url',
             'fieldtype_input_numeric',
             'fieldtype_input_date',
             'fieldtype_input_datetime',
             'fieldtype_input_date_extra',
             'fieldtype_input_masked',
             'fieldtype_input_dynamic_mask',
+            'fieldtype_barcode',
             'fieldtype_dropdown',
             'fieldtype_dropdown_multiple',
             'fieldtype_color',
@@ -124,7 +126,26 @@ class fieldtype_ajax_request
                     case 'fieldtype_input_dynamic_mask':
                     case 'fieldtype_phone':    
                         $html .= '
-                            $("#fields_' . $fields['id'] . '").keyup(function(){ ' . $ajax_request . '});';
+                            $("#fields_' . $fields['id'] . '").on("keyup paste",function(){ setTimeout(()=>{ ' . $ajax_request . '}, 200); });';
+                        break;
+                    case 'fieldtype_barcode':
+                        $html .= '
+                            $("#fields_' . $fields['id'] . '").on("paste scannerDetection",function(){                                                                     
+                                setTimeout(()=>{ ' . $ajax_request . '; $(this).data("scannerdetected",1) }, 200);                                
+                            });  
+                            
+                            $("#fields_' . $fields['id'] . '").on("focusout",function(){                                
+                               if($(this).data("scannerdetected")!=1)
+                               {
+                                 ' . $ajax_request . '
+                               }                               
+                            });  
+                            
+                            $("#fields_' . $fields['id'] . '").on("keyup",function(){ 
+                                $(this).data("scannerdetected",0)    
+                            });
+                            ';
+                        
                         break;
                     case 'fieldtype_checkboxes':
                     case 'fieldtype_radioboxes':

@@ -104,6 +104,11 @@ function handleWSMessage(msg) {
 function updateCallState(data) {
     console.log('[WS] Call state update:', data);
 
+    // Stop ringing when call ends (completed, no-answer, busy, failed)
+    if (data.status && data.status !== 'ringing' && data.status !== 'in-progress') {
+        hideIncomingAlert();
+    }
+
     // Update active call display if this matches our call
     if (state.activeCall && data.callId === state.activeCall.callId && data.status) {
         state.activeCall.status = data.status;
@@ -304,9 +309,11 @@ function showIncomingAlert(data) {
 
     bar.classList.remove('hidden');
 
-    // Play ringtone
+    // Play ringtone (auto-stop after 30s)
     const ringtone = document.getElementById('ringtone');
-    ringtone.play().catch(() => {}); // May fail without user gesture
+    ringtone.play().catch(() => {});
+    clearTimeout(state.ringTimeout);
+    state.ringTimeout = setTimeout(() => hideIncomingAlert(), 30000);
 
     // Store incoming data for answer handler
     bar.dataset.incoming = JSON.stringify(data);

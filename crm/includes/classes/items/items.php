@@ -290,7 +290,8 @@ class items
             switch ($field_info['type'])
             {
                 case 'fieldtype_parent_value':                    
-                    return self::get_heading_field($app_entities_cache[$field_info['entities_id']]['parent_id'],$item_info['parent_item_id']);
+                    return self::get_heading_field($app_entities_cache[$field_info['entities_id']]['parent_id'], 
+                            $item_info['parent_item_id']??'');
                     break;
                 case 'fieldtype_auto_increment':
                 case 'fieldtype_input_ip':

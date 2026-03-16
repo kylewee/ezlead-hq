@@ -62,6 +62,23 @@ class app_chat
 
     function get_access($group_id)
     {
+        global $app_user;
+        
+        if(strlen($app_user['multiple_access_groups']))
+        {
+            $access_schema = [];
+            $access_query = db_query("select * from app_ext_chat_access where access_groups_id in (" . db_input_in($app_user['multiple_access_groups']) . ")");
+            while($access = db_fetch_array($access_query))
+            {
+                $access_schema = array_merge($access_schema, explode(',', $access['access_schema']));
+            }
+            
+            if(count($access_schema))
+            {
+                return implode(',', $access_schema);
+            }
+        }
+                
         $access_query = db_query("select * from app_ext_chat_access where access_groups_id='" . db_input($group_id) . "'");
         if($access = db_fetch_array($access_query))
         {
@@ -75,8 +92,9 @@ class app_chat
 
     function has_access_by_group($group_id, $multiple_access_groups = '')
     {
+        
         if(strlen($multiple_access_groups))
-        {
+        {                        
             $has_access = false;
             
             foreach(explode(',',$multiple_access_groups) as $id)
@@ -86,6 +104,7 @@ class app_chat
                     $has_access = true;
                 }
             }
+                        
             
             return $has_access;
         }
@@ -240,6 +259,7 @@ class app_chat
         $users_query = db_query("select u.*,a.name as group_name,u.field_6 as group_id from app_entity_1 u left join app_access_groups a on a.id=u.field_6 where u.field_5=1 and u.id!='" . $app_user['id'] . "' order by " . $order_by_sql);
         while($users = db_fetch_array($users_query))
         {
+            //print_rr($users);
             //check access			
             if(!$this->has_access_by_group($users['group_id'], $users['multiple_access_groups']))
             {

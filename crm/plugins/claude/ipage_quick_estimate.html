@@ -1,0 +1,180 @@
+<style>
+#qe { max-width: 600px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+#qe h2 { margin: 0 0 16px; font-size: 20px; color: #1e293b; }
+#qe .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#qe .form-grid.full { grid-template-columns: 1fr; }
+#qe label { display: block; font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+#qe input, #qe textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 16px; box-sizing: border-box; transition: border-color 0.15s; }
+#qe input:focus, #qe textarea:focus { outline: none; border-color: #1e40af; box-shadow: 0 0 0 3px rgba(30,64,175,0.1); }
+#qe textarea { resize: vertical; min-height: 70px; }
+#qe .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 24px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.15s; width: 100%; }
+#qe .btn-primary { background: #1e40af; color: #fff; }
+#qe .btn-primary:hover { background: #1e3a8a; }
+#qe .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+#qe .btn-green { background: #16a34a; color: #fff; }
+#qe .btn-green:hover { background: #15803d; }
+#qe .btn-green:disabled { background: #94a3b8; cursor: not-allowed; }
+#qe .section { margin-bottom: 16px; }
+#qe .result-card { background: #f0fdf4; border: 2px solid #22c55e; border-radius: 12px; padding: 20px; margin: 16px 0; }
+#qe .result-card.error { background: #fef2f2; border-color: #ef4444; }
+#qe .price { font-size: 32px; font-weight: 700; color: #16a34a; margin: 8px 0; }
+#qe .meta { font-size: 13px; color: #64748b; }
+#qe .meta span { display: inline-block; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; margin-right: 6px; }
+#qe .breakdown { margin-top: 12px; padding-top: 12px; border-top: 1px solid #d1fae5; font-size: 14px; color: #374151; }
+#qe .breakdown div { display: flex; justify-content: space-between; padding: 3px 0; }
+#qe .spinner { display: inline-block; width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#qe .sent-badge { display: inline-flex; align-items: center; gap: 6px; background: #dcfce7; color: #166534; padding: 8px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; margin-top: 8px; }
+#qe .actions { display: flex; gap: 10px; margin-top: 12px; }
+#qe .actions .btn { flex: 1; }
+#qe .divider { height: 1px; background: #e2e8f0; margin: 16px 0; }
+#qe .crm-link { color: #1e40af; text-decoration: none; font-size: 13px; }
+#qe .crm-link:hover { text-decoration: underline; }
+</style>
+
+<div id="qe">
+    <h2><i class="fa fa-calculator"></i> Quick Estimate</h2>
+
+    <form id="qe-form" onsubmit="return qeGenerate(event)">
+        <div class="section">
+            <div class="form-grid">
+                <div><label>Name</label><input name="name" id="qe-name" placeholder="Customer name"></div>
+                <div><label>Phone</label><input name="phone" id="qe-phone" placeholder="(904) 555-1234" type="tel"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="form-grid full">
+                <div><label>Email</label><input name="email" id="qe-email" placeholder="Optional" type="email"></div>
+            </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section">
+            <div class="form-grid" style="grid-template-columns: 80px 1fr 1fr;">
+                <div><label>Year</label><input name="year" id="qe-year" placeholder="2019" maxlength="4" required></div>
+                <div><label>Make</label><input name="make" id="qe-make" placeholder="Honda" required></div>
+                <div><label>Model</label><input name="model" id="qe-model" placeholder="Civic" required></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="form-grid full">
+                <div><label>What needs fixed?</label><textarea name="problem" id="qe-problem" placeholder="Describe the issue..." required></textarea></div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="qe-gen-btn">
+            <i class="fa fa-bolt"></i> Generate Estimate
+        </button>
+    </form>
+
+    <div id="qe-result" style="display:none;"></div>
+</div>
+
+<script>
+var qeState = {};
+
+function qeGenerate(e) {
+    e.preventDefault();
+    var btn = document.getElementById('qe-gen-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+    var fd = new FormData(document.getElementById('qe-form'));
+    fd.append('action', 'generate');
+
+    fetch('plugins/claude/ajax_estimate.php', {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-bolt"></i> Generate Estimate';
+
+        var box = document.getElementById('qe-result');
+        box.style.display = 'block';
+
+        if (d.error) {
+            box.innerHTML = '<div class="result-card error"><strong>Error:</strong> ' + d.error + '</div>';
+            return;
+        }
+
+        qeState = d;
+
+        var partsStr = '$' + Number(d.parts_low).toLocaleString() + ' - $' + Number(d.parts_high).toLocaleString();
+        var html = '<div class="result-card">';
+        html += '<div class="meta"><span>' + d.source + '</span>';
+        if (d.repair_name) html += '<span>' + d.repair_name + '</span>';
+        html += '</div>';
+        html += '<div class="price">' + d.price_str + '</div>';
+        html += '<div class="breakdown">';
+        html += '<div><span>Labor</span><span>' + d.labor_hours + ' hrs = $' + Number(d.labor_cost).toLocaleString() + '</span></div>';
+        html += '<div><span>Parts</span><span>' + partsStr + '</span></div>';
+        html += '</div>';
+
+        // Dual estimate breakdown
+        if (d.m1_estimate && d.ai_estimate) {
+            html += '<div class="breakdown" style="border-top: 1px dashed #86efac; margin-top: 8px; padding-top: 8px; font-size: 12px; color: #6b7280;">';
+            html += '<div><span>Mitchell1</span><span>$' + Number(d.m1_estimate.total_low).toLocaleString() + ' - $' + Number(d.m1_estimate.total_high).toLocaleString() + '</span></div>';
+            html += '<div><span>GPT</span><span>$' + Number(d.ai_estimate.total_low).toLocaleString() + ' - $' + Number(d.ai_estimate.total_high).toLocaleString() + '</span></div>';
+            html += '</div>';
+        }
+
+        html += '<div class="actions">';
+        html += '<button class="btn btn-green" onclick="qeSend()" id="qe-send-btn"><i class="fa fa-paper-plane"></i> Send to Customer</button>';
+        html += '</div>';
+        html += '<div style="margin-top:10px; text-align:center;">';
+        html += '<a href="index.php?module=items/items&entity_id=53&id=' + d.estimate_id + '" class="crm-link"><i class="fa fa-external-link"></i> View Estimate #' + d.estimate_id + ' in CRM</a>';
+        html += '</div>';
+        html += '</div>';
+
+        box.innerHTML = html;
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-bolt"></i> Generate Estimate';
+        document.getElementById('qe-result').innerHTML = '<div class="result-card error"><strong>Error:</strong> ' + err.message + '</div>';
+        document.getElementById('qe-result').style.display = 'block';
+    });
+
+    return false;
+}
+
+function qeSend() {
+    if (!qeState.estimate_id) return;
+
+    var btn = document.getElementById('qe-send-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sending...';
+
+    var fd = new FormData();
+    fd.append('action', 'send');
+    fd.append('estimate_id', qeState.estimate_id);
+
+    fetch('plugins/claude/ajax_estimate.php', {
+        method: 'POST',
+        body: fd
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.error) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa fa-paper-plane"></i> Send to Customer';
+            alert('Send failed: ' + d.error);
+            return;
+        }
+
+        var via = d.sent_via.join(' + ');
+        btn.parentNode.innerHTML = '<div class="sent-badge"><i class="fa fa-check-circle"></i> Sent via ' + via + '</div>'
+            + (d.pdf_url ? ' <a href="' + d.pdf_url + '" target="_blank" class="crm-link" style="margin-left:8px;"><i class="fa fa-file-pdf-o"></i> PDF</a>' : '');
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-paper-plane"></i> Send to Customer';
+        alert('Error: ' + err.message);
+    });
+}
+</script>

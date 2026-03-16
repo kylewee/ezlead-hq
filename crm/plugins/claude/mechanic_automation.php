@@ -1,11 +1,52 @@
 <?php
 /**
- * Mechanic Jobs Automation - Email Notifications
+ * Mechanic Jobs Automation
  * Cron: Every 5 min - see crontab for exact schedule
+ *
+ * All customer-facing messages go through Kyle's approval gate.
+ * Uses Rukovoditel's items::update_by_id() so CRM email rules,
+ * SMS rules, and process automations fire on stage changes.
+ *
+ * Timeline after job completion:
+ *   Paid → 1 day → check-in ("how's everything?") → 1 day → review request
+ *
+ * Estimate follow-up:
+ *   Sent → 2 days no response → nudge ("have you decided?")
  */
 
 require_once(__DIR__ . '/config.php');
 require_once(__DIR__ . '/claude_api.php');
+require_once(__DIR__ . '/../../config/database.php');
+
+// Load Rukovoditel core so we can use items::update_by_id() etc.
+// This fires email rules, SMS rules, and process automations on changes.
+$crm_root = realpath(__DIR__ . '/../../');
+if (!defined('IS_CRON')) define('IS_CRON', true);
+chdir($crm_root);
+require_once($crm_root . '/includes/application_core.php');
+if (is_file($crm_root . '/includes/languages/' . CFG_APP_LANGUAGE)) {
+    require_once($crm_root . '/includes/languages/' . CFG_APP_LANGUAGE);
+}
+if (is_file($crm_root . '/plugins/ext/languages/' . CFG_APP_LANGUAGE)) {
+    require_once($crm_root . '/plugins/ext/languages/' . CFG_APP_LANGUAGE);
+}
+$app_users_cache = users::get_cache();
+
+/**
+ * Update a CRM record using Rukovoditel's built-in function.
+ * This fires email rules, SMS modules, and process automations.
+ */
+function crm_update(int $entity_id, int $item_id, array $data, array $settings = []): bool {
+    return items::update_by_id($entity_id, $item_id, $data, $settings) !== false;
+}
+
+/**
+ * Insert a CRM record using Rukovoditel's built-in function.
+ */
+function crm_insert(int $entity_id, array $data): int {
+    $result = items::insert($entity_id, $data);
+    return $result ? (int)$result : 0;
+}
 
 // PDF & Stripe integration
 require_once '/var/www/ezlead-platform/lib/PDFGenerator.php';
@@ -27,7 +68,7 @@ $GLOBALS['STRIPE_SECRET_KEY'] = $GLOBALS['STRIPE_SECRET_KEY'] ?? getenv('STRIPE_
 $stripe = new StripeClient($GLOBALS['STRIPE_SECRET_KEY'] ?? null);
 
 // Direct connection to rukovoditel database
-$conn = new mysqli('localhost', 'kylewee', 'rainonin', 'rukovoditel');
+$conn = new mysqli(DB_SERVER, DB_SERVER_USERNAME, DB_SERVER_PASSWORD, DB_DATABASE);
 if ($conn->connect_error) {
     die("Database connection failed\n");
 }
@@ -40,12 +81,78 @@ while ($row = $result->fetch_assoc()) {
     $stage_ids[$key] = $row['id'];
 }
 
-$from_email = "noreply@mechanicstaugustine.com";
+$from_email = "kyle@mechanicstaugustine.com";
 $from_name = "Ez Mobile Mechanic - St. Augustine";
 $business_email = "kyle@ezlead4u.com"; // Your email for notifications
+$kyle_phone = '+19046156899'; // Kyle's cell for approval texts
+
+// ============================================
+// PENDING MESSAGES TABLE (approval gate)
+// All customer-facing messages go through Kyle first.
+// ============================================
+$conn->query("CREATE TABLE IF NOT EXISTS pending_messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    job_id INT NOT NULL,
+    msg_type VARCHAR(50) NOT NULL,
+    channel VARCHAR(10) NOT NULL,
+    recipient VARCHAR(255) NOT NULL,
+    subject VARCHAR(255) DEFAULT '',
+    body TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending',
+    created_at INT NOT NULL,
+    sent_at INT DEFAULT NULL,
+    INDEX idx_status (status),
+    INDEX idx_job (job_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 /**
- * Send email using PHP mail()
+ * Queue a message for Kyle's approval instead of sending directly.
+ * Texts Kyle a preview. He replies "A <id>" to approve, or "D <id>" to deny.
+ *
+ * @param string $type   e.g. 'estimate', 'invoice', 'checkin', 'review', 'reminder', 'nudge'
+ * @param int    $jobId  Mechanic Job ID
+ * @param string $channel 'sms' or 'email'
+ * @param string $recipient Phone or email
+ * @param string $subject Email subject (empty for SMS)
+ * @param string $body   Message body
+ * @param string $customerName For the preview text to Kyle
+ * @return int  Pending message ID
+ */
+/** Sanitize customer name — "Unknown" or empty becomes "there" for SMS greetings */
+function friendly_name($name) {
+    return (empty($name) || strtolower(trim($name)) === 'unknown') ? 'there' : $name;
+}
+
+function queue_message($type, $jobId, $channel, $recipient, $subject, $body, $customerName = '') {
+    global $conn, $kyle_phone;
+
+    $stmt = $conn->prepare("INSERT INTO pending_messages (job_id, msg_type, channel, recipient, subject, body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $now = time();
+    $stmt->bind_param('isssssi', $jobId, $type, $channel, $recipient, $subject, $body, $now);
+    $stmt->execute();
+    $msgId = $conn->insert_id;
+    $stmt->close();
+
+    // Build preview for Kyle
+    $preview = strtoupper($type) . " #$msgId (Job #$jobId)";
+    if ($customerName) $preview .= "\nTo: $customerName";
+    $preview .= "\nVia: $channel → $recipient";
+    if ($channel === 'sms') {
+        $preview .= "\n\n" . substr($body, 0, 120);
+    } else {
+        $preview .= "\nSubj: $subject";
+    }
+    $preview .= "\n\nReply: A $msgId = send, D $msgId = deny";
+
+    // Text Kyle
+    send_sms_direct($kyle_phone, $preview);
+
+    return $msgId;
+}
+
+/**
+ * Send email using PHP mail() — called directly only for Kyle notifications,
+ * or when releasing an approved message.
  */
 function send_email($to, $subject, $body, $from_email, $from_name) {
     $headers = "From: $from_name <$from_email>\r\n";
@@ -56,13 +163,14 @@ function send_email($to, $subject, $body, $from_email, $from_name) {
 }
 
 /**
- * Send SMS via SignalWire (10DLC approved Feb 2026)
+ * Send SMS directly (no approval gate). Used for Kyle notifications
+ * and for releasing approved messages.
  */
-function send_sms($to, $message) {
-    $project_id = 'ce4806cb-ccb0-41e9-8bf1-7ea59536adfd';
-    $api_token  = 'PT1c8cf22d1446d4d9daaf580a26ad92729e48a4a33beb769a';
-    $space      = 'mobilemechanic.signalwire.com';
-    $from       = '+19042175152';
+function send_sms_direct($to, $message) {
+    $project_id = SIGNALWIRE_PROJECT_ID;
+    $api_token  = SIGNALWIRE_API_TOKEN;
+    $space      = SIGNALWIRE_SPACE_URL;
+    $from       = SIGNALWIRE_FROM_NUMBER;
 
     // Normalize to +1XXXXXXXXXX
     $digits = preg_replace('/\D/', '', $to);
@@ -85,6 +193,38 @@ function send_sms($to, $message) {
     echo "  SMS to $to: HTTP $http_code" . ($http_code === 201 ? " SENT" : " FAILED: $resp") . "\n";
     return $http_code === 201;
 }
+
+/** Alias - old code calling send_sms() still works for Kyle-facing messages */
+function send_sms($to, $message) { return send_sms_direct($to, $message); }
+
+/**
+ * Process approved messages — called by SMS reply handler or can be run standalone.
+ * Finds approved pending_messages and actually sends them.
+ */
+function process_approved_messages($conn) {
+    global $from_email, $from_name;
+
+    $result = $conn->query("SELECT * FROM pending_messages WHERE status = 'approved' LIMIT 20");
+    $sent = 0;
+    while ($row = $result->fetch_assoc()) {
+        $ok = false;
+        if ($row['channel'] === 'sms') {
+            $ok = send_sms_direct($row['recipient'], $row['body']);
+        } elseif ($row['channel'] === 'email') {
+            $ok = send_email($row['recipient'], $row['subject'], $row['body'], $from_email, $from_name);
+        }
+        if ($ok) {
+            $conn->query("UPDATE pending_messages SET status = 'sent', sent_at = " . time() . " WHERE id = " . (int)$row['id']);
+            $sent++;
+            echo "  Approved message #{$row['id']} sent ({$row['channel']} to {$row['recipient']})\n";
+        }
+    }
+    return $sent;
+}
+
+// Process any previously approved messages first
+echo "Processing approved messages...\n";
+$approved_sent = process_approved_messages($conn);
 
 /**
  * Generate auto-estimate using OpenAI GPT-4o-mini (primary)
@@ -141,15 +281,17 @@ Be concise and professional. Format for email.";
 echo "Checking for pending estimates ready to send...\n";
 
 $sql = "SELECT e.id, e.field_515 as title, e.field_516 as customer_id, e.field_517 as vehicle_id,
-               e.field_519 as status, e.field_520 as problem,
+               e.field_518 as lead_id, e.field_519 as status, e.field_520 as problem,
                e.field_522 as labor_hours, e.field_523 as parts_cost,
                e.field_524 as labor_cost, e.field_525 as total_low, e.field_526 as total_high,
                e.field_527 as estimate_details,
-               c.field_427 as cust_name, c.field_428 as cust_phone, c.field_429 as cust_email,
+               COALESCE(NULLIF(c.field_427, 'Unknown'), NULLIF(l.field_210, 'Unknown'), 'Customer') as cust_name,
+               c.field_428 as cust_phone, c.field_429 as cust_email,
                v.field_434 as year, v.field_435 as make, v.field_436 as model
         FROM app_entity_53 e
         LEFT JOIN app_entity_47 c ON e.field_516 = c.id
         LEFT JOIN app_entity_48 v ON e.field_517 = v.id
+        LEFT JOIN app_entity_25 l ON e.field_518 = l.id
         WHERE e.field_519 = 205
         AND (e.field_522 > 0 OR e.field_527 != '')";
 
@@ -160,6 +302,10 @@ while ($row = $result->fetch_assoc()) {
     if (empty($row['cust_email']) && empty($row['cust_phone'])) continue;
 
     $vehicleStr = trim("{$row['year']} {$row['make']} {$row['model']}");
+    // Sanitize customer name — don't greet people as "Unknown"
+    if (empty($row['cust_name']) || strtolower(trim($row['cust_name'])) === 'unknown') {
+        $row['cust_name'] = 'there';
+    }
 
     // If estimate fields are empty but we have vehicle+problem, generate now
     if (empty($row['estimate_details']) && !empty($row['year']) && !empty($row['make']) && !empty($row['model']) && !empty($row['problem'])) {
@@ -179,6 +325,12 @@ while ($row = $result->fetch_assoc()) {
     $pdfUrl = $pdfPath ? PDFGenerator::getPublicUrl($pdfPath) : '';
     $pdfLink = $pdfUrl ? "<p><a href='$pdfUrl' style='background:#1e40af; color:white; padding:10px 20px; text-decoration:none; border-radius:6px; display:inline-block;'>View PDF Estimate</a></p>" : '';
 
+    // Generate accept link
+    require_once '/var/www/ezlead-platform/accept/token.php';
+    $acceptToken = estimate_token($row['id']);
+    $acceptUrl = "https://mechanicstaugustine.com/accept/?type=estimate&id={$row['id']}&token={$acceptToken}";
+    $acceptBtn = "<p style='text-align:center;'><a href='$acceptUrl' style='background:#22c55e; color:white; padding:14px 28px; text-decoration:none; border-radius:6px; display:inline-block; font-size:18px; font-weight:bold;'>Approve Estimate</a></p>";
+
     // Email customer
     $subject = "Your Vehicle Repair Estimate - " . $vehicleStr;
     $body = "
@@ -191,27 +343,34 @@ while ($row = $result->fetch_assoc()) {
         <pre style='white-space:pre-wrap;'>" . htmlspecialchars($row['estimate_details']) . "</pre>
     </div>
     $pdfLink
+    $acceptBtn
     <p>To schedule your repair, simply reply to this email or call us at (904) 706-6669.</p>
     <p>Thanks,<br>Kyle<br>Ez Mobile Mechanic</p>
     ";
 
-    if (!empty($row['cust_email'])) send_email($row['cust_email'], $subject, $body, $from_email, $from_name);
-
-    // SMS customer
+    // Queue for Kyle's approval instead of sending directly
+    if (!empty($row['cust_email'])) {
+        queue_message('estimate', (int)$row['id'], 'email', $row['cust_email'], $subject, $body, $row['cust_name']);
+    }
     if (!empty($row['cust_phone'])) {
         $totalLow = number_format(floatval($row['total_low']), 0);
         $totalHigh = number_format(floatval($row['total_high']), 0);
         $priceStr = ($totalLow && $totalHigh) ? "\${$totalLow}-\${$totalHigh}" : "see details";
-        $sms = "Hi {$row['cust_name']}! Ez Mobile Mechanic here. Estimate for your {$vehicleStr}: {$priceStr}. Reply YES to approve or call (904) 706-6669. Thanks!";
-        send_sms($row['cust_phone'], $sms);
+        $sms = "Hi {$row['cust_name']}! Ez Mobile Mechanic here. Estimate for your {$vehicleStr}: {$priceStr}. Reply YES to approve or call (904) 217-5152. Thanks!";
+        queue_message('estimate', (int)$row['id'], 'sms', $row['cust_phone'], '', $sms, $row['cust_name']);
     }
 
     // Update estimate status to Sent (206)
-    $conn->query("UPDATE app_entity_53 SET field_519 = 206 WHERE id = " . intval($row['id']));
+    crm_update(53, (int)$row['id'], ['field_519' => 206]);
 
-    // Notify business
+    // Advance linked Lead stage to Quoted (77)
+    if (!empty($row['lead_id'])) {
+        crm_update(25, (int)$row['lead_id'], ['field_268' => 77]);
+    }
+
+    // Notify business (this goes directly - it's to Kyle, not a customer)
     send_email($business_email, "Estimate Sent: " . $row['cust_name'],
-               "Estimate #{$row['id']} sent to " . ($row['cust_email'] ?: $row['cust_phone']) . " for " . $vehicleStr,
+               "Estimate #{$row['id']} queued for approval. " . ($row['cust_email'] ?: $row['cust_phone']) . " - " . $vehicleStr,
                $from_email, $from_name);
 
     $estimates_sent++;
@@ -229,12 +388,14 @@ $sql = "SELECT e.id as estimate_id, e.field_515 as title, e.field_516 as custome
                e.field_523 as parts_cost, e.field_524 as labor_cost,
                e.field_525 as total_low, e.field_526 as total_high,
                e.field_527 as estimate_details, e.field_529 as existing_job,
-               c.field_427 as cust_name, c.field_428 as cust_phone,
+               COALESCE(NULLIF(c.field_427, 'Unknown'), NULLIF(l.field_210, 'Unknown'), 'Customer') as cust_name,
+               c.field_428 as cust_phone,
                c.field_429 as cust_email, c.field_430 as cust_address,
                v.field_434 as year, v.field_435 as make, v.field_436 as model
         FROM app_entity_53 e
         LEFT JOIN app_entity_47 c ON e.field_516 = c.id
         LEFT JOIN app_entity_48 v ON e.field_517 = v.id
+        LEFT JOIN app_entity_25 l ON e.field_518 = l.id
         WHERE e.field_519 = 207
         AND (e.field_529 IS NULL OR e.field_529 = '' OR e.field_529 = '0')";
 
@@ -265,26 +426,19 @@ while ($row = $result->fetch_assoc()) {
     if ($row['customer_id']) $jobFields['field_439'] = $row['customer_id'];
     if ($row['vehicle_id']) $jobFields['field_440'] = $row['vehicle_id'];
 
-    // Build SQL insert
-    $sqlCols = [];
-    $sqlVals = [];
-    foreach ($jobFields as $field => $value) {
-        $sqlCols[] = $field;
-        $sqlVals[] = "'" . $conn->real_escape_string((string)$value) . "'";
-    }
-
-    $insertSql = "INSERT INTO app_entity_42 (" . implode(', ', $sqlCols) . ", date_added, created_by)
-                   VALUES (" . implode(', ', $sqlVals) . ", NOW(), 0)";
-    $conn->query($insertSql);
-    $jobId = $conn->insert_id;
+    // Use CRM insert so email rules, SMS rules, and process automations fire
+    $jobFields['created_by'] = 0;
+    items::insert(42, $jobFields);
+    $jobId = db_insert_id();
 
     if ($jobId) {
         // Link Job back to Estimate
-        $conn->query("UPDATE app_entity_53 SET field_529 = {$jobId} WHERE id = " . intval($row['estimate_id']));
+        items::update_by_id(53, intval($row['estimate_id']), ['field_529' => $jobId]);
 
-        // Link Lead to Job if available
+        // Link Lead to Job if available, and advance Lead stage to Won (78)
         if ($row['lead_id']) {
-            $conn->query("UPDATE app_entity_42 SET field_445 = " . intval($row['lead_id']) . " WHERE id = {$jobId}");
+            items::update_by_id(42, $jobId, ['field_445' => intval($row['lead_id'])]);
+            crm_update(25, (int)$row['lead_id'], ['field_268' => 78]);
         }
 
         // Notify business
@@ -369,14 +523,14 @@ while ($row = $result->fetch_assoc()) {
     if (empty($slots)) continue;
 
     // Build SMS with slot options
-    $sms = "Hi " . $row['name'] . "! Great news - your repair is approved. Pick a time:\n";
+    $sms = "Hi " . friendly_name($row['name']) . "! Great news - your repair is approved. Pick a time:\n";
     foreach ($slots as $i => $slot) {
         $sms .= ($i + 1) . ") " . $slot['display'] . "\n";
     }
     $sms .= "Reply 1, 2, or 3 to book. - Ez Mobile Mechanic";
 
-    send_sms($row['phone'], $sms);
-    echo "  SMS to {$row['phone']}: scheduling slots sent for job #{$row['id']}\n";
+    queue_message('schedule', (int)$row['id'], 'sms', $row['phone'], '', $sms, $row['name']);
+    echo "  Scheduling slots queued for approval - job #{$row['id']}\n";
 
     // Store pending slots in notes so SMS handler can look them up
     $slotsJson = json_encode(array_map(fn($s) => $s['timestamp'], $slots));
@@ -385,93 +539,37 @@ while ($row = $result->fetch_assoc()) {
 
 // ============================================
 // 2. APPOINTMENT REMINDERS: 24 hours before
-//    Parts-aware: won't confirm if parts not ready
+//    Email: CRM email rule #3 fires on stage change to Confirmed (87)
+//    SMS: still queued here for approval
 // ============================================
 echo "Checking for upcoming appointments...\n";
 
 $tomorrow = time() + 86400;
 $now = time();
 
-// Parts Status (field_456): 101=Not Needed, 102=Needs Ordering, 103=Ordered, 104=Shipped, 105=Arrived, 106=Backordered
-$PARTS_NOT_NEEDED = 101;
-$PARTS_ARRIVED = 105;
-
-$sql = "SELECT id, field_354 as name, field_355 as phone, field_356 as email, field_368 as appointment,
-               field_358 as year, field_359 as make, field_360 as model,
-               /* field_456 as parts_status, field_457 as parts_eta, */ /* fields don't exist yet */
-               field_369 as parts_to_order
+$sql = "SELECT id, field_354 as name, field_355 as phone, field_368 as appointment,
+               field_358 as year, field_359 as make, field_360 as model
         FROM app_entity_42
         WHERE field_362 = " . ($stage_ids['scheduled'] ?? 4) . "
         AND field_368 > $now AND field_368 <= $tomorrow";
 
 $result = $conn->query($sql);
 $reminders_sent = 0;
-$parts_warnings = 0;
 
 while ($row = $result->fetch_assoc()) {
-    /* COMMENTED OUT: parts_status fields (field_456/457) don't exist yet
-    $parts_status = (int)($row['parts_status'] ?: $PARTS_NOT_NEEDED);
-    $parts_ready = in_array($parts_status, [$PARTS_NOT_NEEDED, $PARTS_ARRIVED]);
-
-    // If parts NOT ready, warn Kyle instead of confirming with customer
-    if (!$parts_ready) {
-        $parts_labels = [102 => 'NEEDS ORDERING', 103 => 'ORDERED - NOT YET ARRIVED', 104 => 'SHIPPED - IN TRANSIT', 106 => 'BACKORDERED'];
-        $parts_label = $parts_labels[$parts_status] ?? 'UNKNOWN';
-        $eta_info = $row['parts_eta'] ? " (ETA: {$row['parts_eta']})" : '';
-        $appt_time = date('l, F j \a\t g:i A', $row['appointment']);
-
-        $warning_subject = "PARTS NOT READY - Job #{$row['id']} {$row['name']} tomorrow";
-        $warning_body = "
-        <h2 style='color:#d32f2f;'>Parts Not Ready for Tomorrow's Appointment</h2>
-        <p><strong>Customer:</strong> " . htmlspecialchars($row['name']) . "</p>
-        <p><strong>Vehicle:</strong> " . htmlspecialchars($row['year'] . " " . $row['make'] . " " . $row['model']) . "</p>
-        <p><strong>Appointment:</strong> $appt_time</p>
-        <div style='background:#ffebee; padding:15px; border-radius:8px; margin:20px 0;'>
-            <h3 style='color:#c62828;'>Parts Status: $parts_label$eta_info</h3>
-            " . ($row['parts_to_order'] ? "<p><strong>Parts:</strong> " . htmlspecialchars($row['parts_to_order']) . "</p>" : "") . "
-        </div>
-        <p><strong>Action needed:</strong> Either reschedule or confirm parts will arrive in time.</p>
-        ";
-
-        send_email($business_email, $warning_subject, $warning_body, $from_email, $from_name);
-        $parts_warnings++;
-        echo "PARTS WARNING for job #" . $row['id'] . " - " . $row['name'] . " ($parts_label)\n";
-        continue; // Don't send confirmation to customer yet
-    }
-    END COMMENTED OUT */
-
-    // if (empty($row['email'])) continue; // OLD: skip if no email
-    if (empty($row['email']) && empty($row['phone'])) continue;
-
     $appt_time = date('l, F j \a\t g:i A', $row['appointment']);
 
-    $subject = "Reminder: Your Mechanic Appointment Tomorrow";
-    $body = "
-    <h2>Appointment Reminder</h2>
-    <p>Hello " . htmlspecialchars($row['name']) . ",</p>
-    <p>This is a reminder that your mobile mechanic appointment is scheduled for:</p>
-    <div style='background:#e8f5e9; padding:15px; border-radius:8px; margin:20px 0; text-align:center;'>
-        <h3 style='color:#2e7d32;'>$appt_time</h3>
-        <p>" . htmlspecialchars($row['year'] . " " . $row['make'] . " " . $row['model']) . "</p>
-    </div>
-    <p>Please reply to confirm or reschedule.</p>
-    <p>Thanks,<br>Ez Mobile Mechanic - St. Augustine</p>
-    ";
-
-    // send_email($row['email'], $subject, $body, $from_email, $from_name); // OLD
-    if (!empty($row['email'])) send_email($row['email'], $subject, $body, $from_email, $from_name);
-
-    // SMS customer
+    // Queue SMS for approval (email handled by CRM rule #3)
     if (!empty($row['phone'])) {
-        $sms = "Hi " . $row['name'] . "! Reminder: your mechanic appointment is tomorrow, $appt_time for your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . ". Reply to confirm or call (904) 706-6669 to reschedule.";
-        send_sms($row['phone'], $sms);
+        $sms = "Hi " . friendly_name($row['name']) . "! Reminder: your mechanic appointment is tomorrow, $appt_time for your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . ". Reply to confirm or call (904) 706-6669 to reschedule.";
+        queue_message('reminder', (int)$row['id'], 'sms', $row['phone'], '', $sms, $row['name']);
     }
 
-    // Move to Confirmed stage
-    $conn->query("UPDATE app_entity_42 SET field_362 = " . ($stage_ids['confirmed'] ?? 6) . " WHERE id = " . intval($row['id']));
+    // Move to Confirmed stage — triggers CRM email rule #3
+    crm_update(42, (int)$row['id'], ['field_362' => ($stage_ids['confirmed'] ?? 6)]);
 
     $reminders_sent++;
-    echo "Reminder sent to " . $row['email'] . " for job #" . $row['id'] . "\n";
+    echo "Reminder sent - job #" . $row['id'] . "\n";
 }
 
 // ============================================
@@ -535,126 +633,143 @@ while ($row = $result->fetch_assoc()) {
     <p>Thanks for choosing Ez Mobile Mechanic!</p>
     ";
 
-    // send_email($row['email'], $subject, $body, $from_email, $from_name); // OLD
-    if (!empty($row['email'])) send_email($row['email'], $subject, $body, $from_email, $from_name);
-
-    // SMS customer
+    // Queue for approval
+    if (!empty($row['email'])) {
+        queue_message('invoice', (int)$row['id'], 'email', $row['email'], $subject, $body, $row['name']);
+    }
     if (!empty($row['phone'])) {
-        $sms = "Hi " . $row['name'] . "! Your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . " repair is done. Total: $" . $total . ".";
+        $sms = "Hi " . friendly_name($row['name']) . "! Your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . " repair is done. Total: $" . $total . ".";
         if ($payment_link) $sms .= " Pay online: $payment_link";
         $sms .= " We also accept cash, Venmo, or Zelle. Thanks! - Ez Mobile Mechanic";
-        send_sms($row['phone'], $sms);
+        queue_message('invoice', (int)$row['id'], 'sms', $row['phone'], '', $sms, $row['name']);
     }
 
     // Update payment status to Invoice Sent (choice id 92)
-    $conn->query("UPDATE app_entity_42 SET field_371 = 92 WHERE id = " . intval($row['id']));
+    crm_update(42, (int)$row['id'], ['field_371' => 92]);
 
     $invoices_sent++;
-    echo "Invoice sent for job #" . $row['id'] . " - $" . $total . "\n";
+    echo "Invoice queued for approval - job #" . $row['id'] . " - $" . $total . "\n";
 }
 
 // ============================================
-// 4. FOLLOW UP: Check on paid jobs (3 days after)
+// 4. CHECK-IN: Soft check-in on paid jobs (1 day after)
+//    Email: CRM email rule #4 fires on stage change to Follow Up (95)
+//    SMS: still queued here for approval
 // ============================================
-echo "Checking for jobs needing follow-up...\n";
+echo "Checking for jobs needing check-in...\n";
 
-$three_days_ago = time() - (3 * 86400);
+$one_day_ago = time() - (1 * 86400);
 
-$sql = "SELECT id, field_354 as name, field_355 as phone, field_356 as email,
+$sql = "SELECT id, field_354 as name, field_355 as phone,
                field_358 as year, field_359 as make, field_360 as model,
                date_updated
         FROM app_entity_42
         WHERE field_362 = " . ($stage_ids['paid'] ?? 90) . "
-        AND date_updated < $three_days_ago
+        AND date_updated < $one_day_ago
         AND date_updated > 0";
 
 $result = $conn->query($sql);
 $followups_sent = 0;
 
 while ($row = $result->fetch_assoc()) {
-    // if (empty($row['email'])) continue; // OLD: skip if no email
-    if (empty($row['email']) && empty($row['phone'])) continue;
-
-    // Email customer
-    if (!empty($row['email'])) {
-        $subject = "How's Your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . " Running?";
-        $body = "
-        <h2>Hi " . htmlspecialchars($row['name']) . "!</h2>
-        <p>Just checking in to see how your " . htmlspecialchars($row['year'] . " " . $row['make'] . " " . $row['model']) . " is running after our recent repair.</p>
-        <p>If you have any questions or concerns, please don't hesitate to reach out!</p>
-        <p>Thanks again for choosing Ez Mobile Mechanic - St. Augustine.</p>
-        <p>Best regards,<br>Kyle<br>Ez Mobile Mechanic</p>
-        ";
-        send_email($row['email'], $subject, $body, $from_email, $from_name);
-    }
-
-    // SMS customer
+    // Queue SMS for approval (email handled by CRM rule #4)
     if (!empty($row['phone'])) {
-        $sms = "Hi " . $row['name'] . "! Kyle from Ez Mobile Mechanic. How's your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . " running after the repair? Let me know if you have any issues! (904) 706-6669";
-        send_sms($row['phone'], $sms);
+        $sms = "Hi " . friendly_name($row['name']) . "! Kyle from Ez Mobile Mechanic. How's your " . $row['year'] . " " . $row['make'] . " " . $row['model'] . " running after the repair? Let me know if you have any questions or concerns! (904) 706-6669";
+        queue_message('checkin', (int)$row['id'], 'sms', $row['phone'], '', $sms, $row['name']);
     }
 
-    // Move to Follow Up stage
-    $conn->query("UPDATE app_entity_42 SET field_362 = " . ($stage_ids['follow_up'] ?? 95) . ", date_updated = " . time() . " WHERE id = " . intval($row['id']));
+    // Move to Follow Up stage — triggers CRM email rule #4
+    crm_update(42, (int)$row['id'], ['field_362' => ($stage_ids['follow_up'] ?? 95)]);
 
     $followups_sent++;
-    echo "Follow-up sent for job #" . $row['id'] . "\n";
+    echo "Check-in sent - job #" . $row['id'] . "\n";
 }
 
 // ============================================
-// 5. REVIEW REQUEST: Ask for review (2 days after follow-up)
+// 5. REVIEW REQUEST: Ask for review (1 day after check-in)
+//    Email: CRM email rule #5 fires on stage change to Review Request (96)
+//    SMS: still queued here for approval
 // ============================================
 echo "Checking for jobs needing review request...\n";
 
-$two_days_ago = time() - (2 * 86400);
+$one_day_ago_review = time() - (1 * 86400);
 $review_link = "https://g.page/r/CQepHCWnvxq4EAE/review";
 
-$sql = "SELECT id, field_354 as name, field_355 as phone, field_356 as email,
+$sql = "SELECT id, field_354 as name, field_355 as phone,
                field_358 as year, field_359 as make, field_360 as model,
                date_updated
         FROM app_entity_42
         WHERE field_362 = " . ($stage_ids['follow_up'] ?? 95) . "
-        AND date_updated < $two_days_ago
+        AND date_updated < $one_day_ago_review
         AND date_updated > 0";
 
 $result = $conn->query($sql);
 $reviews_sent = 0;
 
 while ($row = $result->fetch_assoc()) {
-    // if (empty($row['email'])) continue; // OLD: skip if no email
-    if (empty($row['email']) && empty($row['phone'])) continue;
-
-    $subject = "Ez Mobile Mechanic Would Love Your Feedback!";
-    $body = "
-    <h2>Hi " . htmlspecialchars($row['name']) . "!</h2>
-    <p>Thank you for choosing Ez Mobile Mechanic - St. Augustine for your " . htmlspecialchars($row['year'] . " " . $row['make'] . " " . $row['model']) . " repair!</p>
-    <p>We'd really appreciate it if you could take a moment to share your experience. Your feedback helps other customers find quality mobile mechanic services.</p>
-    <div style='background:#e3f2fd; padding:25px; border-radius:12px; margin:25px 0; text-align:center;'>
-        <h3 style='color:#1565c0; margin-bottom:20px;'>Leave Us a Review</h3>
-        <a href='$review_link' style='background:#4285f4; color:white; padding:15px 30px; text-decoration:none; border-radius:8px; display:inline-block; font-size:18px; font-weight:bold;'>Post a Review on Google</a>
-        <p style='margin-top:20px; color:#666;'>Or scan this QR code:</p>
-        <img src='cid:qrcode' alt='QR Code for Review' style='width:150px; height:150px; margin-top:10px;'>
-    </div>
-    <p>Thank you for your support!</p>
-    <p>Best regards,<br>Kyle<br>Ez Mobile Mechanic - St. Augustine</p>
-    ";
-
-    // send_email($row['email'], $subject, $body, $from_email, $from_name); // OLD
-    if (!empty($row['email'])) send_email($row['email'], $subject, $body, $from_email, $from_name);
-
-    // SMS customer
+    // Queue SMS for approval (email handled by CRM rule #5)
     if (!empty($row['phone'])) {
-        $sms = "Hi " . $row['name'] . "! Thanks for choosing Ez Mobile Mechanic! Would you mind leaving us a quick Google review? It really helps: $review_link Thanks! - Kyle";
-        send_sms($row['phone'], $sms);
+        $sms = "Hi " . friendly_name($row['name']) . "! Thanks for choosing Ez Mobile Mechanic! Would you mind leaving us a quick Google review? It really helps: $review_link Thanks! - Kyle";
+        queue_message('review', (int)$row['id'], 'sms', $row['phone'], '', $sms, $row['name']);
     }
 
-    // Move to Review Request stage (final stage)
-    $conn->query("UPDATE app_entity_42 SET field_362 = " . ($stage_ids['review_request'] ?? 96) . ", date_updated = " . time() . " WHERE id = " . intval($row['id']));
+    // Move to Review Request stage — triggers CRM email rule #5
+    crm_update(42, (int)$row['id'], ['field_362' => ($stage_ids['review_request'] ?? 96)]);
 
     $reviews_sent++;
-    echo "Review request sent for job #" . $row['id'] . "\n";
+    echo "Review request sent - job #" . $row['id'] . "\n";
 }
 
+
+// ============================================
+// 5b. ESTIMATE NUDGE: Follow up on sent estimates with no response (2 days)
+// ============================================
+echo "Checking for estimates needing follow-up nudge...\n";
+
+$two_days_ago_nudge = time() - (2 * 86400);
+$nudge_sent = 0;
+
+$sql = "SELECT e.id, e.field_515 as title, e.field_518 as lead_id, e.field_520 as problem,
+               e.field_525 as total_low, e.field_526 as total_high,
+               COALESCE(NULLIF(c.field_427, 'Unknown'), NULLIF(l.field_210, 'Unknown'), 'Customer') as cust_name,
+               c.field_428 as cust_phone, c.field_429 as cust_email,
+               v.field_434 as year, v.field_435 as make, v.field_436 as model,
+               e.date_updated
+        FROM app_entity_53 e
+        LEFT JOIN app_entity_47 c ON e.field_516 = c.id
+        LEFT JOIN app_entity_48 v ON e.field_517 = v.id
+        LEFT JOIN app_entity_25 l ON e.field_518 = l.id
+        WHERE e.field_519 = 206
+        AND e.date_updated < $two_days_ago_nudge
+        AND e.date_updated > 0
+        AND (e.field_529 IS NULL OR e.field_529 = '' OR e.field_529 = '0')";
+
+$result = $conn->query($sql);
+while ($row = $result->fetch_assoc()) {
+    if (empty($row['cust_phone']) && empty($row['cust_email'])) continue;
+
+    // Check we haven't already sent a nudge for this estimate
+    $existingNudge = $conn->query("SELECT id FROM pending_messages WHERE job_id = " . (int)$row['id'] . " AND msg_type = 'nudge' LIMIT 1");
+    if ($existingNudge && $existingNudge->num_rows > 0) continue;
+
+    $vehicleStr = trim("{$row['year']} {$row['make']} {$row['model']}");
+
+    if (!empty($row['cust_phone'])) {
+        $sms = "Hi " . friendly_name($row['cust_name']) . "! Just following up on the estimate for your {$vehicleStr}. Have you had a chance to look it over? Let me know if you have any questions. - Kyle, Ez Mobile Mechanic (904) 706-6669";
+        queue_message('nudge', (int)$row['id'], 'sms', $row['cust_phone'], '', $sms, $row['cust_name']);
+    }
+    if (!empty($row['cust_email'])) {
+        $subject = "Following Up: Your Estimate for " . $vehicleStr;
+        $body = "<h2>Hi " . htmlspecialchars(friendly_name($row['cust_name'])) . ",</h2>"
+            . "<p>Just checking in - have you had a chance to review the estimate for your " . htmlspecialchars($vehicleStr) . "?</p>"
+            . "<p>If you have any questions or want to adjust anything, just reply to this email or call (904) 706-6669.</p>"
+            . "<p>Thanks,<br>Kyle<br>Ez Mobile Mechanic</p>";
+        queue_message('nudge', (int)$row['id'], 'email', $row['cust_email'], $subject, $body, $row['cust_name']);
+    }
+
+    $nudge_sent++;
+    echo "Estimate nudge queued for approval - estimate #{$row['id']}\n";
+}
 
 // ============================================
 // 6. PARTS SYNC: parts_orders → CRM Parts Status
@@ -862,16 +977,16 @@ if ($result) {
             <p>Thanks,<br>Kyle<br>Ez Mobile Mechanic - St. Augustine</p>
             ";
 
-            send_email($customerEmail, $subject, $body, $from_email, $from_name);
+            queue_message('diagnostic', $jobId, 'email', $customerEmail, $subject, $body, $customerName);
         }
 
         // SMS customer
         if ($customerPhone) {
-            $sms = "Hi " . $customerName . "! Your diagnostic is done for your " . $vehicleStr . ". "
+            $sms = "Hi " . friendly_name($customerName) . "! Your diagnostic is done for your " . $vehicleStr . ". "
                 . ($row['conclusion'] ?? '') . " "
                 . "Estimate: $" . number_format($estimateData['total_low'] ?? 0, 0) . "-$" . number_format($estimateData['total_high'] ?? 0, 0) . ". "
                 . "Call/text (904) 706-6669 to approve & schedule.";
-            send_sms($customerPhone, $sms);
+            queue_message('diagnostic', $jobId, 'sms', $customerPhone, '', $sms, $customerName);
         }
 
         // Notify Kyle
@@ -896,15 +1011,16 @@ if ($result) {
 // Summary
 // ============================================
 echo "\n--- Summary ---\n";
-echo "Estimates sent: $estimates_sent\n";
+echo "Approved msgs released: $approved_sent\n";
+echo "Estimates queued: $estimates_sent\n";
 echo "Jobs from estimates: $jobs_created\n";
-echo "Reminders sent: $reminders_sent\n";
-echo "Parts warnings: $parts_warnings\n";
-echo "Invoices sent: $invoices_sent\n";
-echo "Follow-ups sent: $followups_sent\n";
-echo "Review requests sent: $reviews_sent\n";
+echo "Reminders queued: $reminders_sent\n";
+echo "Invoices queued: $invoices_sent\n";
+echo "Check-ins queued: $followups_sent\n";
+echo "Review requests queued: $reviews_sent\n";
+echo "Estimate nudges queued: $nudge_sent\n";
 echo "Parts synced: $parts_synced\n";
 echo "Diag M1 lookups: $diag_lookups\n";
-echo "Diag reports sent: $diag_reports\n";
+echo "Diag reports queued: $diag_reports\n";
 
 $conn->close();

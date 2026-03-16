@@ -98,24 +98,31 @@
   }
   else
   {
-    echo CFG_APP_NAME;
+    if(strlen(CFG_APP_LOGO_URL)>0)
+    {
+      echo '<a href="' . CFG_APP_LOGO_URL . '" style="color:inherit;text-decoration:none">' . CFG_APP_NAME . '</a>';
+    }
+    else
+    {
+      echo CFG_APP_NAME;
+    }
   }
 ?>
-	
+
 </div>
 <!-- END LOGO -->
 <!-- BEGIN LOGIN -->
 <div class="content <?php echo 'content-' . $app_action ?>" >
 
-<?php 
+<?php
   //output alerts if they exists.
-  echo $alerts->output(); 
-        
-//include module views    
+  echo $alerts->output();
+
+//include module views
   if(is_file($path = 'modules/' . $app_module . '/views/' . $app_action . '.php'))
-  {    
+  {
     require($path);
-  }   
+  }
 ?>
 
 </div>
@@ -126,6 +133,7 @@
 <div class="copyright">
     <?= app_copyright_text() ?>
     <?php echo app_powered_by_text() ?>
+    <br><small><a href="https://ezlead4u.com" style="color:inherit">Back to Homepage</a></small>
 </div>
 <!-- END COPYRIGHT -->
 

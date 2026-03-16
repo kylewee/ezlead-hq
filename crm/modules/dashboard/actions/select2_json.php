@@ -340,10 +340,10 @@ switch ($app_module_action)
                             $js .= '$("#fields_' . $value['to'] . '").empty();' . "\n";
 
                             $selected = [];
-                            $entity_item_query = db_query("select  e.* from app_entity_" . $field_info_cfg->get('entity_id') . " e  where id in (" . db_input_in($item_value) . ")", false);
+                            $entity_item_query = db_query("select  e.* from app_entity_" . $field_info_cfg->get('entity_id') . " e  where id in (" . db_input_in($item_value) . ") order by field(e.id, " . db_input_in($item_value) . ")", false);
                             while ($entity_item = db_fetch_array($entity_item_query))
                             {
-                                $heading = fieldtype_entity_ajax::render_heading_template($entity_item, $entity_info, $field_entity_info, $field_info_cfg, false);
+                                $heading = fieldtype_entity_ajax::render_heading_template($entity_item, $entity_info, $field_entity_info, $field_info_cfg, true);
                                 //echo $entity_item['id'] . '-' . $heading['text'];
 
                                 $js .= '$("#fields_' . $value['to'] . '").append($("<option></option>").attr("value",' . $entity_item['id'] . ').text("' . addslashes($heading['text']) . '"));' . "\n";

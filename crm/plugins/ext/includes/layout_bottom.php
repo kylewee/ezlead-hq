@@ -65,5 +65,3 @@ if(is_file($language_file_path = 'js/fullcalendar-scheduler/6.1.10/packages/core
 
 
 
-
-<!-- Analytics widget removed - using native Rukovoditel dashboard counters instead -->

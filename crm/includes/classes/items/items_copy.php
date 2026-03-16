@@ -60,6 +60,7 @@ class items_copy
             {
                 $this->copy_nested_items($new_item_id);
             }
+            
         }
 
         return $this->new_item_id;
@@ -196,6 +197,7 @@ class items_copy
             $sql_data_new['date_updated'] = 0;
             $sql_data_new['created_by'] = $app_logged_users_id;
             $sql_data_new['parent_item_id'] = ($this->parent_item_id ? $this->parent_item_id : $item_info['parent_item_id']);
+            $sql_data_new['parent_id'] = 0;
 
             db_perform('app_entity_' . $this->entities_id, $sql_data_new);
             $this->new_item_id = $new_item_id = db_insert_id();

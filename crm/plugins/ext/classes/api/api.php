@@ -822,6 +822,17 @@ class api
                     {
                         switch($field_info['type'])
                         {
+                            case 'fieldtype_input_encrypted':
+                                $row_query = db_query("select AES_ENCRYPT('" . db_input(trim($value)) . "','" . db_input(DB_ENCRYPTION_KEY) . "') as text",false);
+                                $row = db_fetch_array($row_query);        
+                                $sql_data[$field] =  $row['text'];
+                                break;
+                            case 'fieldtype_textarea_encrypted':
+                                $value = str_replace(array('<','>'),array('&lt;','&gt;'),$value);
+                                $row_query = db_query("select AES_ENCRYPT('" . db_input(trim($value)) . "','" . db_input(DB_ENCRYPTION_KEY) . "') as text",false);
+                                $row = db_fetch_array($row_query); 
+                                $sql_data[$field] =  $row['text'];
+                                break;
                             case 'fieldtype_input_date':
                             case 'fieldtype_input_date_extra':
                             case 'fieldtype_input_datetime':

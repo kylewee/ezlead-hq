@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, Helvetica, Arial, sans-serif; background: #f8fafc; padding: 20px; color: #1e293b; }
+
+.header { text-align: center; margin-bottom: 24px; }
+.biz-name { font-size: 24px; font-weight: bold; color: #1e40af; }
+.biz-tag { font-size: 13px; color: #64748b; }
+.biz-phone { font-size: 14px; color: #475569; margin-top: 4px; }
+
+.est-num { font-size: 12px; color: #94a3b8; text-align: center; margin-bottom: 16px; }
+
+.section { background: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.section-title { font-size: 13px; font-weight: 600; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+
+.info-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+.info-row:last-child { border-bottom: none; }
+.info-label { color: #64748b; font-size: 14px; }
+.info-value { font-weight: 600; font-size: 14px; }
+
+.price-box { text-align: center; padding: 20px 16px; }
+.your-price { font-size: 36px; font-weight: 800; color: #16a34a; }
+.your-label { font-size: 14px; color: #64748b; margin-bottom: 4px; }
+
+.compare { display: flex; gap: 12px; margin-top: 16px; }
+.compare-item { flex: 1; text-align: center; background: #f8fafc; border-radius: 8px; padding: 12px 8px; }
+.compare-label { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
+.compare-price { font-size: 16px; font-weight: 700; color: #dc2626; margin-top: 4px; }
+.compare-note { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+
+.savings { background: #f0fdf4; border: 2px solid #22c55e; border-radius: 12px; text-align: center; padding: 16px; margin-bottom: 16px; }
+.savings-label { font-size: 13px; color: #15803d; font-weight: 600; }
+.savings-amount { font-size: 24px; font-weight: 800; color: #16a34a; }
+
+.breakdown .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.breakdown .row:last-child { border-bottom: none; }
+.breakdown .total { background: #1e40af; color: white; margin: 12px -16px -16px -16px; padding: 14px 16px; border-radius: 0 0 12px 12px; display: flex; justify-content: space-between; font-weight: 700; font-size: 18px; }
+
+.footer { text-align: center; color: #94a3b8; font-size: 11px; margin-top: 16px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="biz-name">Ez Mobile Mechanic</div>
+    <div class="biz-tag">We Come To You</div>
+    <div class="biz-phone">(904) 663-4789</div>
+</div>
+
+<div class="est-num">Estimate #0241 &bull; March 3, 2026</div>
+
+<div class="section">
+    <div class="section-title">Customer</div>
+    <div class="info-row"><span class="info-label">Name</span><span class="info-value">Braiden Lamonica</span></div>
+    <div class="info-row"><span class="info-label">Vehicle</span><span class="info-value">2004 BMW 330xi</span></div>
+    <div class="info-row"><span class="info-label">Concern</span><span class="info-value">Fuel Pump & Fuel Filter Replacement</span></div>
+</div>
+
+<div class="section price-box">
+    <div class="your-label">Your Price</div>
+    <div class="your-price">$540</div>
+    <div class="compare">
+        <div class="compare-item">
+            <div class="compare-label">Typical Shop</div>
+            <div class="compare-price">$893–$1,506</div>
+            <div class="compare-note">Book rate + aftermarket parts</div>
+        </div>
+        <div class="compare-item">
+            <div class="compare-label">Dealer</div>
+            <div class="compare-price">$1,532+</div>
+            <div class="compare-note">OEM parts alone</div>
+        </div>
+    </div>
+</div>
+
+<div class="savings">
+    <div class="savings-label">You Save Up To</div>
+    <div class="savings-amount">$966</div>
+</div>
+
+<div class="section breakdown">
+    <div class="section-title">Estimate Breakdown</div>
+    <div class="row"><span>Fuel Pump — Labor</span><span style="font-weight:600">$350.00</span></div>
+    <div class="row"><span>Fuel Pump — Parts</span><span style="font-weight:600">$106.00</span></div>
+    <div class="row"><span>Fuel Filter — Complete</span><span style="font-weight:600">$84.00</span></div>
+    <div class="total"><span>Total</span><span>$540.00</span></div>
+</div>
+
+<div class="section">
+    <div class="section-title">Details</div>
+    <div style="font-size:14px; color:#475569; line-height:1.6;">Replace fuel pump module assembly. Includes removal of old assembly from tank, installation and testing of new unit.<br><br>Replace inline fuel filter with new hose clips. Includes parts and labor.</div>
+</div>
+
+<div class="footer">
+    Ez Mobile Mechanic | (904) 663-4789 | kyle@mobilemechanic.best<br>
+    Licensed & Insured | St. Augustine & Jacksonville, FL<br>
+    Estimate valid for 30 days. Final pricing may vary based on diagnosis.
+</div>
+
+</body>
+</html>

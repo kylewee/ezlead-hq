@@ -39,10 +39,16 @@ define('ANALYTICS_PAGE_URL', 385);
 
 $response = [];
 
+// Dropdown choice ID -> display label maps
+$healthLabels = ['116' => 'Healthy', '117' => 'Warning', '118' => 'Down', '119' => 'Unknown'];
+$issueStatusLabels = ['107' => 'Open', '108' => 'In Progress', '109' => 'Resolved', '110' => 'Closed'];
+$issuePriorityLabels = ['103' => 'Critical', '104' => 'High', '105' => 'Medium', '106' => 'Low'];
+$uptimeStatusLabels = ['120' => 'Up', '121' => 'Slow', '122' => 'Down'];
+
 // Get stats
 $total = $conn->query("SELECT COUNT(*) as cnt FROM app_entity_" . WEBSITES_ENTITY)->fetch_assoc()['cnt'];
-$healthy = $conn->query("SELECT COUNT(*) as cnt FROM app_entity_" . WEBSITES_ENTITY . " WHERE field_" . WEBSITES_HEALTH . " = 'Healthy'")->fetch_assoc()['cnt'];
-$openIssues = $conn->query("SELECT COUNT(*) as cnt FROM app_entity_" . ISSUES_ENTITY . " WHERE field_" . ISSUES_STATUS . " IN ('Open', 'In Progress')")->fetch_assoc()['cnt'];
+$healthy = $conn->query("SELECT COUNT(*) as cnt FROM app_entity_" . WEBSITES_ENTITY . " WHERE field_" . WEBSITES_HEALTH . " = '116'")->fetch_assoc()['cnt'];
+$openIssues = $conn->query("SELECT COUNT(*) as cnt FROM app_entity_" . ISSUES_ENTITY . " WHERE field_" . ISSUES_STATUS . " IN ('107', '108')")->fetch_assoc()['cnt'];
 $totalPageviews = $conn->query("SELECT COUNT(*) as cnt FROM app_entity_" . ANALYTICS_ENTITY)->fetch_assoc()['cnt'];
 $todayPageviews = $conn->query("SELECT COUNT(*) as cnt FROM app_entity_" . ANALYTICS_ENTITY . " WHERE date_added >= UNIX_TIMESTAMP(CURDATE())")->fetch_assoc()['cnt'];
 
@@ -82,7 +88,7 @@ while ($row = $sitesResult->fetch_assoc()) {
     $sites[] = [
         'id' => $row['id'],
         'domain' => $row['domain'],
-        'health' => $row['health'] ?: 'Unknown',
+        'health' => $healthLabels[$row['health']] ?? 'Unknown',
         'last_check' => $lastCheck ?: 'Never',
         'open_issues' => (int)$row['open_issues'],
         'notes_count' => (int)$row['notes_count'],
@@ -111,8 +117,8 @@ while ($row = $issuesResult->fetch_assoc()) {
     $issues[] = [
         'id' => $row['id'],
         'title' => $row['title'],
-        'priority' => $row['priority'] ?: 'Medium',
-        'status' => $row['status'] ?: 'Open',
+        'priority' => $issuePriorityLabels[$row['priority']] ?? 'Medium',
+        'status' => $issueStatusLabels[$row['status']] ?? 'Open',
         'site' => $row['site']
     ];
 }
@@ -143,7 +149,7 @@ while ($row = $uptimeResult->fetch_assoc()) {
     $uptime[] = [
         'id' => $row['id'],
         'domain' => $row['domain'],
-        'status' => $row['status'] ?: 'Unknown',
+        'status' => $uptimeStatusLabels[$row['status']] ?? 'Unknown',
         'response_time' => $row['response_time'],
         'check_time' => $checkTime ?: 'Unknown'
     ];

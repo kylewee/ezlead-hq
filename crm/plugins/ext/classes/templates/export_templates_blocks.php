@@ -338,7 +338,7 @@ class export_templates_blocks
         }
         //exit();
 
-        $max_replacements = 5;
+        $max_replacements = 50;
         
         for($i=0; $i<$max_replacements; $i++)
         {

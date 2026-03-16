@@ -231,7 +231,7 @@ class filters_panels
             $field_name = $panel_field['title'];
         } else
         {
-            $field_name = strlen($field_info['short_name']) ? $field_info['short_name'] : fields_types::get_option($field_info['type'], 'name', $field_info['name']);
+            $field_name = strlen($field_info['short_name']??'') ? $field_info['short_name'] : fields_types::get_option($field_info['type'], 'name', $field_info['name']);
         }                
 
         $html = '				

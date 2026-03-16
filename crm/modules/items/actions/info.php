@@ -89,7 +89,8 @@ switch($app_module_action)
     $file = attachments::parse_filename(base64_decode($_GET['file']));
                   
     if(is_file($file['file_path']) and $file['is_image'])
-    {          
+    {    
+        
         if(isset($_GET['rotate']))
         {
             attachments::rotate_image($file['file_path'], $_GET['rotate']);
@@ -101,10 +102,12 @@ switch($app_module_action)
             }
         }
             
+                
         if(!$size = getimagesize($file['file_path']))
         {
-            exit();
+            $size = [350,350];            
         }
+        
         
         $width = $size[0];
         $height = $size[1];
@@ -124,7 +127,7 @@ switch($app_module_action)
                 $height  = $height - (($height/100)*$diff);
             } 
             
-            if($file['mime_type']!='image/gif')
+            if(!in_array($file['mime_type'], ['image/gif', 'image/svg+xml']))
             {
                 //menu
                 $file = urlencode(base64_encode(base64_decode($_GET['file'])));

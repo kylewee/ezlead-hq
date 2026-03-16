@@ -12,7 +12,7 @@
  * https://fips.ru/EGD/3b18c104-1db7-4f2d-83fb-2d38e1474ca3
  */
 
-    define('PROJECT_VERSION','3.6.3');
+    define('PROJECT_VERSION','3.6.4');
     define('PROJECT_VERSION_DEV','');    
     
 //is HTTPS

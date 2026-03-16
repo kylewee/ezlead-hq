@@ -146,7 +146,7 @@ if(strlen($_POST['force_filter_by']))
 $listing_sql_query = items::add_access_query($current_entity_id, $listing_sql_query, $listing -> force_access_query);
 
 //tree table condition
-if($listing -> get_listing_type()=='tree_table' and !strlen($_POST['search_keywords']))
+if($listing -> get_listing_type()=='tree_table' and !strlen($_POST['search_keywords']) and !strlen($_POST['force_display_id']))
 {
    $listing_sql_query .= " and e.parent_id=0"; 
 }

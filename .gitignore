@@ -26,3 +26,4 @@ crm/backups/
 
 # Compiled binaries
 backend/ezlead-api
+data/crm_backup_20260318.sql

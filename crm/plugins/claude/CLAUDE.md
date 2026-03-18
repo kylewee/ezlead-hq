@@ -44,6 +44,16 @@
 | 95 | Follow Up | Review request in 2 days |
 | 96 | Review Request | Final stage |
 
+Choices 217-221 (Incoming, Scheduled, On Call, Completed, Refunded) are DEACTIVATED — legacy dispatch stages.
+
+### Auto-Calculated Fields (MySQL Triggers)
+- **Total (field_366)** = Parts Cost (field_364) + Labor Cost (field_365) — BEFORE INSERT + BEFORE UPDATE triggers on app_entity_42
+- **Default Business (field_475)** = 2 (Ez Mobile Mechanic) on new records
+
+### Default Filters
+- Jobs list excludes Complete (89), Paid (90), Follow Up (95), Review Request (96) by default
+- Search enabled on: Customer Name (354), Phone (355), Make (359), Model (360)
+
 ### Entity 49 - Diagnostics (child of 42)
 | Field | Name | Type |
 |-------|------|------|
@@ -189,13 +199,16 @@ Pending triggers M1 auto-lookup (Block 7), Complete triggers estimate+PDF+email 
 | AI Chat | `module=ext/ipages/view&id=1` |
 | Mission Control | `module=ext/ipages/view&id=6` |
 
-## Rukovoditel Admin Tables
+## Rukovoditel Admin Reference
 
-- `app_fields` - field definitions (listing_status, forms_tabs_id)
-- `app_fields_choices` - dropdown options (fields_id, value, bg_color)
-- `app_forms_tabs` - form tab groups (fields with forms_tabs_id=0 are invisible!)
-- `app_ext_kanban` - kanban config (users_groups + assigned_to must not be empty)
-- `app_listing_highlight_rules` - row color coding
-- `app_records_visibility_rules` - multi-business filtering
+**READ FIRST**: 8 comprehensive cheatsheets at `docs/cheatsheets/`:
+- `fields-choices-entities.md` — fields, dropdowns, entity config, 10 gotchas
+- `kanban-filters-views.md` — kanban cards, filters, saved views, 7 blank-card causes
+- `processes-automation.md` — processes, email rules, SMS triggers
+- `ipages-dashboards.md` — info pages, dashboard widgets, render pipeline
+- `reports-charts.md` — 10 report subsystems, dashboard integration
+- `access-control-users.md` — groups, permissions, visibility rules, 5-step access pipeline
+- `public-forms-api.md` — REST API (17 actions), public forms, plugin hooks
+- `calendar-comments-misc.md` — calendars, comments, attachments, menus, 20+ tables
 
-See `~/.claude/projects/-var-www-ezlead-hq/memory/rukovoditel-patterns.md` for full patterns guide.
+Also see: `~/.claude/projects/-var-www-ezlead-hq/memory/rukovoditel-patterns.md` for PHP patterns.

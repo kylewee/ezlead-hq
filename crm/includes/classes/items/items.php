@@ -60,11 +60,14 @@ class items
         }
         
         $item_info = db_find("app_entity_" . $entities_id, $items_id);
-        
-        $parent_item_id = ($item_info['parent_id']>0 ? tree_table::get_top_parent_item_id($entities_id,$item_info['parent_id']) : 0); 
-                
-        //reset parent items
-        db_query("update app_entity_" . $entities_id . "  set parent_id='" . $item_info['parent_id'] . "' where parent_id='" . $items_id . "'");
+
+        //reset parent items (only for entities with tree/hierarchy support via parent_id column)
+        $parent_item_id = 0;
+        if(isset($item_info['parent_id']))
+        {
+            $parent_item_id = ($item_info['parent_id']>0 ? tree_table::get_top_parent_item_id($entities_id,$item_info['parent_id']) : 0);
+            db_query("update app_entity_" . $entities_id . "  set parent_id='" . $item_info['parent_id'] . "' where parent_id='" . $items_id . "'");
+        }
 
         attachments::delete_attachments($entities_id, $items_id);
         onlyoffice::delete_attachments($entities_id, $items_id);
@@ -1339,6 +1342,11 @@ class items
 
         //add visibility access query
         $listing_sql_query .= records_visibility::add_access_query($current_entity_id);
+
+        //add business filter from claude plugin (sidebar dropdown)
+        if (function_exists('claude_business_filter')) {
+            $listing_sql_query .= claude_business_filter($current_entity_id);
+        }
 
         return $listing_sql_query;
     }
